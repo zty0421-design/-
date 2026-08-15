@@ -3344,4 +3344,3 @@ initDb()
       process.exit(1);
     }
   );
-```
