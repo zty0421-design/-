@@ -4,87 +4,4559 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#101321" />
-  <title>TRPG Online MVP</title>
+  <title>TRPG Online</title>
+
   <style>
-    :root{--bg:#0c0f19;--panel:#151a29;--panel2:#1b2235;--line:#293149;--text:#eef2ff;--muted:#aab3cb;--accent:#8b7cff;--accent2:#6de1c1;--danger:#ff7185;--shadow:0 14px 40px rgba(0,0,0,.25)}
-    *{box-sizing:border-box} html,body{margin:0;min-height:100%;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;background:radial-gradient(circle at top,#171b2f 0,#0c0f19 46%,#080a11 100%);color:var(--text)} button,input{font:inherit} button{cursor:pointer;border:0}.hidden{display:none!important}.muted{color:var(--muted)}
-    .auth-shell{min-height:100vh;display:grid;place-items:center;padding:20px}.auth-card{width:min(460px,100%);background:rgba(21,26,41,.92);border:1px solid var(--line);border-radius:24px;padding:30px;box-shadow:var(--shadow);backdrop-filter:blur(12px)}
-    .brand{font-size:28px;font-weight:800;letter-spacing:.02em}.brand span{color:var(--accent)}.auth-card h1{margin:10px 0 6px}.auth-tabs{display:grid;grid-template-columns:1fr 1fr;margin:22px 0 16px;background:var(--panel2);border-radius:12px;padding:4px}.tab{padding:10px;color:var(--muted);background:transparent;border-radius:8px}.tab.active{background:var(--accent);color:white}.field{display:grid;gap:7px;margin:13px 0}.field label{font-size:13px;color:var(--muted)}.field input{width:100%;padding:13px 14px;border:1px solid var(--line);background:#0f1421;color:var(--text);border-radius:12px;outline:none}.field input:focus{border-color:var(--accent)}.btn{width:100%;padding:13px 16px;border-radius:12px;background:var(--accent);color:white;font-weight:700}.btn.secondary{background:var(--panel2);border:1px solid var(--line)}.btn.ghost{background:transparent;border:1px solid var(--line)}.error{color:var(--danger);font-size:13px;margin-top:10px;min-height:18px}
-    .app{display:grid;grid-template-rows:64px 1fr;min-height:100vh}.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--line);background:rgba(12,15,25,.84);backdrop-filter:blur(14px);position:sticky;top:0;z-index:5}.top-left,.top-right{display:flex;align-items:center;gap:12px}.room-code{font-family:ui-monospace,monospace;background:var(--panel2);border:1px solid var(--line);padding:7px 10px;border-radius:10px}.user-pill{color:var(--muted)}
-    .layout{display:grid;grid-template-columns:220px minmax(0,1fr) 310px;min-height:calc(100vh - 64px)}.sidebar,.rightbar{padding:18px;border-right:1px solid var(--line);background:rgba(16,20,33,.55)}.rightbar{border-right:0;border-left:1px solid var(--line)}.nav{display:grid;gap:8px}.nav button{padding:11px 12px;background:transparent;color:var(--muted);text-align:left;border-radius:10px}.nav button.active,.nav button:hover{background:var(--panel2);color:white}.content{min-width:0;padding:18px;display:grid;grid-template-rows:auto 1fr;gap:14px}.grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,1fr);gap:14px}.card{background:rgba(21,26,41,.82);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.card.pad{padding:16px}.card h2,.card h3{margin:0 0 12px}.hero{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions .btn{width:auto;padding:10px 13px}.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{background:var(--panel2);border:1px solid var(--line);padding:12px;border-radius:13px}.stat .n{font-size:24px;font-weight:800}.section{margin-top:14px}.event-list{display:grid;gap:9px;max-height:53vh;overflow:auto}.event{padding:10px 12px;background:#101523;border:1px solid #222a40;border-radius:12px}.event .head{font-size:12px;color:var(--muted);margin-bottom:5px}.member-list{display:grid;gap:9px}.member{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px;background:#101523;border:1px solid #222a40;border-radius:12px}.badge{font-size:11px;padding:4px 7px;border-radius:999px;background:#252d45;color:var(--muted)}.badge.gm{background:#453b86;color:#fff}.online-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:#54607a}.online-dot.on{background:var(--accent2);box-shadow:0 0 8px rgba(109,225,193,.6)}
-    .chat{display:grid;grid-template-rows:1fr auto;min-height:300px}.chat-log{padding:14px;overflow:auto;display:grid;gap:10px}.chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}.chat-input input{flex:1;padding:11px 12px;border-radius:11px;border:1px solid var(--line);background:#0f1421;color:var(--text)}.chat-input button{width:auto;padding:11px 15px}
-    .modal{position:fixed;inset:0;background:rgba(3,5,10,.72);display:grid;place-items:center;padding:16px;z-index:20}.modal-card{width:min(520px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px}.modal-actions{display:flex;gap:8px;margin-top:14px}.modal-actions .btn{width:auto;flex:1}
-    .mobile-nav{display:none}.mobile-only{display:none}.toast{position:fixed;right:18px;bottom:18px;background:#171d2d;border:1px solid var(--line);padding:11px 13px;border-radius:12px;box-shadow:var(--shadow);z-index:30}
-    @media(max-width:1050px){.layout{grid-template-columns:190px minmax(0,1fr)}.rightbar{display:none}.grid2{grid-template-columns:1fr}.mobile-only{display:block}}
-    @media(max-width:760px){.app{grid-template-rows:58px 1fr 68px}.topbar{padding:0 12px}.brand{font-size:20px}.room-code{font-size:12px;padding:6px 8px}.user-pill{display:none}.layout{grid-template-columns:1fr;min-height:0}.sidebar{display:none}.content{padding:11px;padding-bottom:78px}.hero{display:grid}.stat-grid{grid-template-columns:repeat(2,1fr)}.card{border-radius:15px}.grid2{gap:10px}.top-left{gap:7px}.mobile-nav{position:fixed;left:0;right:0;bottom:0;height:68px;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(12,15,25,.96);border-top:1px solid var(--line);z-index:10;padding-bottom:env(safe-area-inset-bottom)}.mobile-nav button{background:transparent;color:var(--muted);display:grid;place-items:center;font-size:11px;gap:3px}.mobile-nav button.active{color:white}.hide-mobile{display:none}.actions{display:grid;grid-template-columns:1fr 1fr}.actions .btn{width:100%}.chat{min-height:60vh}.modal{padding:10px}.modal-card{padding:15px}}
+    :root{
+      --bg:#0b0e17;
+      --panel:#151a29;
+      --panel2:#1b2235;
+      --panel3:#101522;
+      --line:#293149;
+      --text:#eef2ff;
+      --muted:#aab3cb;
+      --accent:#8b7cff;
+      --accent2:#6de1c1;
+      --danger:#ff7185;
+      --warning:#f2c96d;
+      --shadow:0 14px 40px rgba(0,0,0,.25);
+    }
+
+    *{
+      box-sizing:border-box;
+    }
+
+    html,
+    body{
+      margin:0;
+      min-height:100%;
+      font-family:
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "Noto Sans TC",
+        sans-serif;
+      background:
+        radial-gradient(
+          circle at top,
+          #171b2f 0,
+          #0c0f19 46%,
+          #080a11 100%
+        );
+      color:var(--text);
+    }
+
+    body{
+      min-height:100vh;
+    }
+
+    button,
+    input,
+    textarea,
+    select{
+      font:inherit;
+    }
+
+    button{
+      cursor:pointer;
+      border:0;
+    }
+
+    input,
+    textarea,
+    select{
+      outline:none;
+    }
+
+    .hidden{
+      display:none!important;
+    }
+
+    .muted{
+      color:var(--muted);
+    }
+
+    .small{
+      font-size:12px;
+    }
+
+    .danger{
+      color:var(--danger);
+    }
+
+    .success{
+      color:var(--accent2);
+    }
+
+    /* =========================
+       AUTH
+    ========================= */
+
+    .auth-shell{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:20px;
+    }
+
+    .auth-card{
+      width:min(460px,100%);
+      background:rgba(21,26,41,.94);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:30px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(12px);
+    }
+
+    .brand{
+      font-size:28px;
+      font-weight:800;
+      letter-spacing:.02em;
+    }
+
+    .brand span{
+      color:var(--accent);
+    }
+
+    .auth-card h1{
+      margin:10px 0 6px;
+    }
+
+    .auth-tabs{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      margin:22px 0 16px;
+      background:var(--panel2);
+      border-radius:12px;
+      padding:4px;
+    }
+
+    .tab{
+      padding:10px;
+      color:var(--muted);
+      background:transparent;
+      border-radius:8px;
+    }
+
+    .tab.active{
+      background:var(--accent);
+      color:white;
+    }
+
+    .field{
+      display:grid;
+      gap:7px;
+      margin:13px 0;
+    }
+
+    .field label{
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .field input,
+    .field textarea,
+    .field select{
+      width:100%;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      background:#0f1421;
+      color:var(--text);
+      border-radius:12px;
+    }
+
+    .field textarea{
+      min-height:90px;
+      resize:vertical;
+    }
+
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus{
+      border-color:var(--accent);
+    }
+
+    .btn{
+      width:100%;
+      padding:13px 16px;
+      border-radius:12px;
+      background:var(--accent);
+      color:white;
+      font-weight:700;
+    }
+
+    .btn:hover{
+      filter:brightness(1.08);
+    }
+
+    .btn.secondary{
+      background:var(--panel2);
+      border:1px solid var(--line);
+    }
+
+    .btn.ghost{
+      background:transparent;
+      border:1px solid var(--line);
+    }
+
+    .btn.danger{
+      background:rgba(255,113,133,.13);
+      color:var(--danger);
+      border:1px solid rgba(255,113,133,.3);
+    }
+
+    .error{
+      color:var(--danger);
+      font-size:13px;
+      margin-top:10px;
+      min-height:18px;
+    }
+
+    /* =========================
+       APP
+    ========================= */
+
+    .app{
+      display:grid;
+      grid-template-rows:64px 1fr;
+      min-height:100vh;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:0 20px;
+      border-bottom:1px solid var(--line);
+      background:rgba(12,15,25,.84);
+      backdrop-filter:blur(14px);
+      position:sticky;
+      top:0;
+      z-index:5;
+    }
+
+    .top-left,
+    .top-right{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .room-code{
+      font-family:ui-monospace,monospace;
+      background:var(--panel2);
+      border:1px solid var(--line);
+      padding:7px 10px;
+      border-radius:10px;
+    }
+
+    .user-pill{
+      color:var(--muted);
+    }
+
+    /* =========================
+       LAYOUT
+    ========================= */
+
+    .layout{
+      display:grid;
+      grid-template-columns:220px minmax(0,1fr) 310px;
+      min-height:calc(100vh - 64px);
+    }
+
+    .sidebar,
+    .rightbar{
+      padding:18px;
+      background:rgba(16,20,33,.55);
+    }
+
+    .sidebar{
+      border-right:1px solid var(--line);
+    }
+
+    .rightbar{
+      border-left:1px solid var(--line);
+    }
+
+    .nav{
+      display:grid;
+      gap:8px;
+    }
+
+    .nav button{
+      padding:11px 12px;
+      background:transparent;
+      color:var(--muted);
+      text-align:left;
+      border-radius:10px;
+    }
+
+    .nav button.active,
+    .nav button:hover{
+      background:var(--panel2);
+      color:white;
+    }
+
+    .content{
+      min-width:0;
+      padding:18px;
+      display:grid;
+      grid-template-rows:auto 1fr;
+      gap:14px;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:
+        minmax(0,1.4fr)
+        minmax(280px,1fr);
+      gap:14px;
+    }
+
+    .card{
+      background:rgba(21,26,41,.82);
+      border:1px solid var(--line);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+    }
+
+    .card.pad{
+      padding:16px;
+    }
+
+    .card h2,
+    .card h3{
+      margin:0 0 12px;
+    }
+
+    .hero{
+      display:flex;
+      justify-content:space-between;
+      gap:18px;
+      align-items:flex-start;
+    }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .actions .btn{
+      width:auto;
+      padding:10px 13px;
+    }
+
+    .section{
+      margin-top:14px;
+    }
+
+    /* =========================
+       STATS
+    ========================= */
+
+    .stat-grid{
+      display:grid;
+      grid-template-columns:
+        repeat(4,1fr);
+      gap:10px;
+    }
+
+    .stat{
+      background:var(--panel2);
+      border:1px solid var(--line);
+      padding:12px;
+      border-radius:13px;
+    }
+
+    .stat .n{
+      font-size:24px;
+      font-weight:800;
+    }
+
+    .stat small{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:400;
+    }
+
+    /* =========================
+       EVENTS
+    ========================= */
+
+    .event-list{
+      display:grid;
+      gap:7px;
+      max-height:53vh;
+      overflow:auto;
+    }
+
+    .event{
+      padding:8px 10px;
+      background:#101523;
+      border:1px solid #222a40;
+      border-radius:10px;
+      line-height:1.45;
+    }
+
+    .event .head{
+      font-size:11px;
+      color:var(--muted);
+      margin-bottom:3px;
+    }
+
+    /* =========================
+       MEMBERS
+    ========================= */
+
+    .member-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .member{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+      align-items:center;
+      padding:9px;
+      background:#101523;
+      border:1px solid #222a40;
+      border-radius:11px;
+    }
+
+    .badge{
+      font-size:11px;
+      padding:4px 7px;
+      border-radius:999px;
+      background:#252d45;
+      color:var(--muted);
+    }
+
+    .badge.dm{
+      background:#453b86;
+      color:#fff;
+    }
+
+    .online-dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      display:inline-block;
+      background:#54607a;
+    }
+
+    .online-dot.on{
+      background:var(--accent2);
+      box-shadow:0 0 8px rgba(109,225,193,.6);
+    }
+
+    /* =========================
+       CHAT
+    ========================= */
+
+    .chat{
+      display:grid;
+      grid-template-rows:1fr auto;
+      min-height:300px;
+    }
+
+    .chat-log{
+      padding:10px;
+      overflow:auto;
+      display:grid;
+      gap:5px;
+      align-content:start;
+    }
+
+    .chat-message{
+      display:flex;
+      align-items:flex-start;
+      gap:6px;
+      max-width:100%;
+    }
+
+    .chat-name{
+      color:var(--accent2);
+      font-size:11px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+
+    .chat-bubble{
+      background:#101523;
+      border:1px solid #222a40;
+      border-radius:8px;
+      padding:5px 8px;
+      font-size:13px;
+      line-height:1.35;
+      max-width:75%;
+      word-break:break-word;
+    }
+
+    .chat-input{
+      display:flex;
+      gap:8px;
+      padding:8px;
+      border-top:1px solid var(--line);
+    }
+
+    .chat-input input{
+      flex:1;
+      padding:9px 11px;
+      border-radius:9px;
+      border:1px solid var(--line);
+      background:#0f1421;
+      color:var(--text);
+    }
+
+    .chat-input button{
+      width:auto;
+      padding:9px 14px;
+    }
+
+    /* =========================
+       CHARACTER CARD
+    ========================= */
+
+    .character-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:15px;
+    }
+
+    .character-name{
+      font-size:26px;
+      font-weight:800;
+    }
+
+    .character-subtitle{
+      color:var(--muted);
+      margin-top:3px;
+    }
+
+    .character-section{
+      margin-top:18px;
+    }
+
+    .character-section-title{
+      font-size:15px;
+      font-weight:800;
+      margin-bottom:10px;
+    }
+
+    .attribute-grid{
+      display:grid;
+      grid-template-columns:
+        repeat(5,1fr);
+      gap:8px;
+    }
+
+    .attribute{
+      background:var(--panel2);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:11px;
+      text-align:center;
+    }
+
+    .attribute-name{
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .attribute-value{
+      font-size:22px;
+      font-weight:800;
+      margin-top:3px;
+    }
+
+    .affinity-grid{
+      display:grid;
+      grid-template-columns:
+        repeat(7,1fr);
+      gap:7px;
+    }
+
+    .affinity{
+      padding:9px 5px;
+      border:1px solid var(--line);
+      background:var(--panel2);
+      border-radius:10px;
+      text-align:center;
+    }
+
+    .affinity .icon{
+      font-size:18px;
+    }
+
+    .affinity .name{
+      font-size:11px;
+      margin-top:3px;
+      color:var(--muted);
+    }
+
+    .affinity .value{
+      font-size:16px;
+      font-weight:800;
+      margin-top:2px;
+    }
+
+    .job-list{
+      display:grid;
+      grid-template-columns:
+        repeat(2,1fr);
+      gap:8px;
+    }
+
+    .job{
+      background:var(--panel2);
+      border:1px solid var(--line);
+      padding:10px;
+      border-radius:11px;
+    }
+
+    .job-title{
+      font-weight:700;
+    }
+
+    .job-rank{
+      color:var(--accent);
+      font-size:12px;
+      margin-top:3px;
+    }
+
+    .skill-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .skill{
+      background:var(--panel2);
+      border:1px solid var(--line);
+      border-radius:11px;
+      padding:10px;
+    }
+
+    .skill-header{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .skill-name{
+      font-weight:700;
+    }
+
+    .skill-level{
+      font-size:11px;
+      color:var(--accent);
+    }
+
+    .skill-description{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:5px;
+      line-height:1.45;
+    }
+
+    .equipment-grid{
+      display:grid;
+      grid-template-columns:
+        repeat(2,1fr);
+      gap:8px;
+    }
+
+    .equipment{
+      background:var(--panel2);
+      border:1px solid var(--line);
+      border-radius:11px;
+      padding:10px;
+    }
+
+    .growth-box{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      background:rgba(139,124,255,.08);
+      border:1px solid rgba(139,124,255,.25);
+      border-radius:12px;
+      padding:12px;
+    }
+
+    /* =========================
+       DM CHARACTER LIST
+    ========================= */
+
+    .character-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .character-list-item{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+      background:var(--panel2);
+      border:1px solid var(--line);
+      border-radius:11px;
+      padding:10px;
+    }
+
+    .character-list-item:hover{
+      border-color:var(--accent);
+    }
+
+    /* =========================
+       MODAL
+    ========================= */
+
+    .modal{
+      position:fixed;
+      inset:0;
+      background:rgba(3,5,10,.72);
+      display:grid;
+      place-items:center;
+      padding:16px;
+      z-index:20;
+    }
+
+    .modal-card{
+      width:min(620px,100%);
+      max-height:90vh;
+      overflow:auto;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:18px;
+    }
+
+    .modal-actions{
+      display:flex;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .modal-actions .btn{
+      width:auto;
+      flex:1;
+    }
+
+    /* =========================
+       MOBILE
+    ========================= */
+
+    .mobile-nav{
+      display:none;
+    }
+
+    .mobile-only{
+      display:none;
+    }
+
+    .toast{
+      position:fixed;
+      right:18px;
+      bottom:18px;
+      background:#171d2d;
+      border:1px solid var(--line);
+      padding:11px 13px;
+      border-radius:12px;
+      box-shadow:var(--shadow);
+      z-index:30;
+    }
+
+    @media(max-width:1050px){
+      .layout{
+        grid-template-columns:
+          190px minmax(0,1fr);
+      }
+
+      .rightbar{
+        display:none;
+      }
+
+      .grid2{
+        grid-template-columns:1fr;
+      }
+
+      .mobile-only{
+        display:block;
+      }
+    }
+
+    @media(max-width:760px){
+      .app{
+        grid-template-rows:
+          58px 1fr 68px;
+      }
+
+      .topbar{
+        padding:0 12px;
+      }
+
+      .brand{
+        font-size:20px;
+      }
+
+      .room-code{
+        font-size:12px;
+        padding:6px 8px;
+      }
+
+      .user-pill{
+        display:none;
+      }
+
+      .layout{
+        grid-template-columns:1fr;
+        min-height:0;
+      }
+
+      .sidebar{
+        display:none;
+      }
+
+      .content{
+        padding:11px;
+        padding-bottom:78px;
+      }
+
+      .hero{
+        display:grid;
+      }
+
+      .stat-grid{
+        grid-template-columns:
+          repeat(2,1fr);
+      }
+
+      .attribute-grid{
+        grid-template-columns:
+          repeat(2,1fr);
+      }
+
+      .affinity-grid{
+        grid-template-columns:
+          repeat(4,1fr);
+      }
+
+      .card{
+        border-radius:15px;
+      }
+
+      .grid2{
+        gap:10px;
+      }
+
+      .top-left{
+        gap:7px;
+      }
+
+      .mobile-nav{
+        position:fixed;
+        left:0;
+        right:0;
+        bottom:0;
+        height:68px;
+        display:grid;
+        grid-template-columns:
+          repeat(5,1fr);
+        background:rgba(12,15,25,.96);
+        border-top:1px solid var(--line);
+        z-index:10;
+        padding-bottom:env(safe-area-inset-bottom);
+      }
+
+      .mobile-nav button{
+        background:transparent;
+        color:var(--muted);
+        display:grid;
+        place-items:center;
+        font-size:11px;
+        gap:3px;
+      }
+
+      .mobile-nav button.active{
+        color:white;
+      }
+
+      .actions{
+        display:grid;
+        grid-template-columns:
+          1fr 1fr;
+      }
+
+      .actions .btn{
+        width:100%;
+      }
+
+      .chat{
+        min-height:55vh;
+      }
+
+      .job-list,
+      .equipment-grid{
+        grid-template-columns:1fr;
+      }
+
+      .modal{
+        padding:10px;
+      }
+
+      .modal-card{
+        padding:15px;
+      }
+    }
   </style>
 </head>
+
 <body>
-  <div id="auth" class="auth-shell">
-    <div class="auth-card">
-      <div class="brand">TRPG <span>ONLINE</span></div>
-      <h1>多人跑團平台</h1>
-      <div class="muted">手機、平板、電腦都可以加入同一場跑團。</div>
-      <div class="auth-tabs"><button class="tab active" data-auth="login">登入</button><button class="tab" data-auth="register">註冊</button></div>
-      <form id="authForm">
-        <div class="field"><label>帳號</label><input id="username" required autocomplete="username" minlength="2" maxlength="20" /></div>
-        <div class="field"><label>密碼</label><input id="password" required type="password" autocomplete="current-password" minlength="6" /></div>
-        <button class="btn" id="authSubmit">登入</button><div id="authError" class="error"></div>
-      </form>
+
+<!-- =========================
+     LOGIN
+========================= -->
+
+<div id="auth" class="auth-shell">
+
+  <div class="auth-card">
+
+    <div class="brand">
+      TRPG <span>ONLINE</span>
     </div>
+
+    <h1>D&D 跑團平台</h1>
+
+    <div class="muted">
+      保存你的角色卡，加入持續進行的跑團。
+    </div>
+
+    <div class="auth-tabs">
+      <button class="tab active" data-auth="login">
+        登入
+      </button>
+
+      <button class="tab" data-auth="register">
+        註冊
+      </button>
+    </div>
+
+    <form id="authForm">
+
+      <div class="field">
+        <label>帳號</label>
+
+        <input
+          id="username"
+          required
+          autocomplete="username"
+          minlength="2"
+          maxlength="20"
+        />
+      </div>
+
+      <div class="field">
+        <label>密碼</label>
+
+        <input
+          id="password"
+          required
+          type="password"
+          autocomplete="current-password"
+          minlength="6"
+        />
+      </div>
+
+      <button
+        class="btn"
+        id="authSubmit"
+        type="submit"
+      >
+        登入
+      </button>
+
+      <div
+        id="authError"
+        class="error"
+      ></div>
+
+    </form>
+
   </div>
 
-  <div id="app" class="app hidden">
-    <header class="topbar">
-      <div class="top-left"><div class="brand">TRPG <span>ONLINE</span></div><div id="roomTitle">未加入跑團</div><div id="roomCode" class="room-code hidden"></div></div>
-      <div class="top-right"><div id="userPill" class="user-pill"></div><button id="logout" class="btn ghost" style="width:auto;padding:8px 12px">登出</button></div>
-    </header>
-    <div class="layout">
-      <aside class="sidebar"><div class="nav"><button data-view="dashboard" class="active">🏠 跑團首頁</button><button data-view="room">🎲 跑團房間</button><button data-view="character">🧙 角色卡</button><button data-view="dice">🎯 骰子</button></div></aside>
-      <main id="content" class="content"></main>
-      <aside class="rightbar"><div class="card pad"><h3>在線玩家</h3><div id="onlineMembers" class="member-list"></div></div><div class="card pad section"><h3>房間資訊</h3><div id="roomInfo" class="muted">尚未加入房間</div></div></aside>
+</div>
+
+
+<!-- =========================
+     APP
+========================= -->
+
+<div id="app" class="app hidden">
+
+  <header class="topbar">
+
+    <div class="top-left">
+
+      <div class="brand">
+        TRPG <span>ONLINE</span>
+      </div>
+
+      <div id="roomTitle">
+        我的跑團
+      </div>
+
+      <div
+        id="roomCode"
+        class="room-code hidden"
+      ></div>
+
     </div>
-    <nav class="mobile-nav"><button data-view="dashboard" class="active">🏠<span>首頁</span></button><button data-view="room">🎲<span>房間</span></button><button data-view="character">🧙<span>角色</span></button><button data-view="dice">🎯<span>骰子</span></button></nav>
+
+    <div class="top-right">
+
+      <div
+        id="userPill"
+        class="user-pill"
+      ></div>
+
+      <button
+        id="logout"
+        class="btn ghost"
+        style="width:auto;padding:8px 12px"
+      >
+        登出
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <div class="layout">
+
+    <!-- =========================
+         LEFT NAV
+    ========================= -->
+
+    <aside class="sidebar">
+
+      <div class="nav">
+
+        <button
+          data-view="dashboard"
+          class="active"
+        >
+          🏠 跑團首頁
+        </button>
+
+        <button
+          data-view="room"
+        >
+          🎲 跑團房間
+        </button>
+
+        <button
+          data-view="character"
+        >
+          🧙 我的角色
+        </button>
+
+        <button
+          data-view="skills"
+        >
+          ✨ 技能
+        </button>
+
+        <button
+          data-view="equipment"
+        >
+          ⚔️ 裝備
+        </button>
+
+        <button
+          data-view="dice"
+        >
+          🎯 骰子
+        </button>
+
+        <button
+          id="dmCharactersNav"
+          data-view="dm-characters"
+          class="hidden"
+        >
+          📚 玩家角色
+        </button>
+
+      </div>
+
+    </aside>
+
+
+    <!-- =========================
+         MAIN
+    ========================= -->
+
+    <main
+      id="content"
+      class="content"
+    ></main>
+
+
+    <!-- =========================
+         RIGHT BAR
+    ========================= -->
+
+    <aside class="rightbar">
+
+      <div class="card pad">
+
+        <h3>
+          在線玩家
+        </h3>
+
+        <div
+          id="onlineMembers"
+          class="member-list"
+        >
+          <div class="muted">
+            尚未加入跑團
+          </div>
+        </div>
+
+      </div>
+
+
+      <div class="card pad section">
+
+        <h3>
+          跑團資訊
+        </h3>
+
+        <div
+          id="roomInfo"
+          class="muted"
+        >
+          尚未加入跑團
+        </div>
+
+      </div>
+
+
+      <div
+        id="dmPanel"
+        class="card pad section hidden"
+      >
+
+        <h3>
+          DM 管理
+        </h3>
+
+        <div class="muted small">
+          你是本場 DM，可以查看所有玩家角色卡。
+        </div>
+
+      </div>
+
+    </aside>
+
   </div>
 
-  <div id="modal" class="modal hidden"><div class="modal-card"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="modal-actions"><button id="modalCancel" class="btn secondary">取消</button><button id="modalOk" class="btn">確定</button></div></div></div>
-  <div id="toast" class="toast hidden"></div>
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const state={token:localStorage.getItem('rpg_token'),user:null,room:null,online:[],view:'dashboard',socket:null,authMode:'login'};
-    const $=s=>document.querySelector(s); const $$=s=>[...document.querySelectorAll(s)];
-    function toast(t){$('#toast').textContent=t;$('#toast').classList.remove('hidden');clearTimeout(window.__toast);window.__toast=setTimeout(()=>$('#toast').classList.add('hidden'),2200)}
-    async function api(url,options={}){const r=await fetch(url,{...options,headers:{'Content-Type':'application/json',Authorization:`Bearer ${state.token}`,...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'請求失敗');return d}
-    function showAuth(){ $('#auth').classList.remove('hidden'); $('#app').classList.add('hidden'); }
-    function showApp(){ $('#auth').classList.add('hidden'); $('#app').classList.remove('hidden'); $('#userPill').textContent=state.user?.username||''; connectSocket(); render(); }
-    async function boot(){if(!state.token)return showAuth();try{const d=await api('/api/me');state.user=d.user;showApp()}catch{localStorage.removeItem('rpg_token');state.token=null;showAuth()}}
-    async function submitAuth(e){e.preventDefault();$('#authError').textContent='';const username=$('#username').value.trim();const password=$('#password').value;try{const d=await fetch(`/api/auth/${state.authMode}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}).then(r=>r.json().then(x=>({ok:r.ok,...x})));if(!d.ok)throw new Error(d.error||'失敗');state.token=d.token;localStorage.setItem('rpg_token',state.token);state.user=d.user;showApp();}catch(err){$('#authError').textContent=err.message}}
-    function connectSocket(){if(state.socket){state.socket.disconnect()}state.socket=io({auth:{token:state.token}});state.socket.on('connect_error',()=>toast('即時連線失敗'));state.socket.on('presence',d=>{state.online=d.online||[];updateRightBar()});state.socket.on('room:snapshot',snap=>{state.room=snap;updateAll()});state.socket.on('error:message',m=>toast(m));}
-    function render(){renderContent();updateRightBar();}
-    function renderContent(){const c=$('#content'); if(state.view==='dashboard') c.innerHTML=dashboardHTML(); else if(state.view==='room') c.innerHTML=roomHTML(); else if(state.view==='character') c.innerHTML=characterHTML(); else c.innerHTML=diceHTML(); bindView();}
-    function dashboardHTML(){const r=state.room?.room;return `<section class="card pad hero"><div><div class="muted">歡迎回來，${esc(state.user.username)}</div><h2>${r?esc(r.name):'建立你的第一場跑團'}</h2><div class="muted">${r?`房間代碼 <b>${r.code}</b> · ${r.status==='active'?'跑團進行中':'等待 GM 開團'}`:'建立房間後，把代碼分享給隊友即可加入。'}</div></div><div class="actions"><button class="btn" id="createRoom">＋ 建立房間</button><button class="btn secondary" id="joinRoom">加入房間</button>${r&&r.owner_id===state.user.id&&r.status==='lobby'?'<button class="btn" id="startCampaign">▶ GM 開團</button>':''}</div></section><div class="stat-grid section"><div class="stat"><div class="muted">玩家</div><div class="n">${state.room?.members?.length||0}</div></div><div class="stat"><div class="muted">回合</div><div class="n">${r?.round||'-'}</div></div><div class="stat"><div class="muted">狀態</div><div class="n" style="font-size:18px">${r?(r.status==='active'?'進行中':'大廳'):'—'}</div></div><div class="stat"><div class="muted">在線</div><div class="n">${state.online.length||0}</div></div></div><div class="grid2 section"><div class="card pad"><h3>最近事件</h3><div class="event-list">${eventsHTML()}</div></div><div class="card pad"><h3>快速開始</h3><div class="muted">先建立房間，再把 6 碼房間代碼傳給玩家。GM 開團後，可以用骰子、聊天和角色數值一起進行跑團。</div></div></div>`}
-    function roomHTML(){if(!state.room)return `<div class="card pad"><h2>還沒有加入房間</h2><div class="muted">回到首頁建立或加入房間。</div></div>`;const r=state.room.room;return `<div class="card pad hero"><div><div class="muted">${esc(r.name)}</div><h2>${r.status==='active'?'⚔️ 跑團進行中':'🕯️ 等待開團'}</h2><div class="muted">房間代碼：<b>${r.code}</b> · 第 ${r.round} 回合</div></div><div class="actions">${r.owner_id===state.user.id&&r.status==='lobby'?'<button class="btn" id="startCampaign">▶ 開始跑團</button>':''}${r.owner_id===state.user.id&&r.status==='active'?'<button class="btn secondary" id="nextTurn">下一回合</button>':''}</div></div><div class="grid2 section"><div class="card chat"><div id="chatLog" class="chat-log">${chatHTML()}</div><form id="chatForm" class="chat-input"><input id="chatInput" placeholder="輸入訊息…" maxlength="1000" /><button class="btn">送出</button></form></div><div class="card pad"><h3>本場玩家</h3><div class="member-list">${membersHTML()}</div></div></div>`}
-    function characterHTML(){const me=state.room?.members?.find(m=>m.id===state.user.id);if(!me)return `<div class="card pad"><h2>角色卡</h2><div class="muted">加入房間後就能看到你的角色。</div></div>`;return `<div class="card pad"><div class="hero"><div><div class="muted">角色名稱</div><h2>${esc(me.display_name)}</h2><div class="muted">${me.role==='gm'?'GM':'玩家'} · @${esc(me.username)}</div></div><span class="badge ${me.role==='gm'?'gm':''}">${me.role==='gm'?'GM':'PLAYER'}</span></div><div class="stat-grid section"><div class="stat"><div class="muted">HP</div><div class="n">${me.hp}<small>/${me.max_hp}</small></div></div><div class="stat"><div class="muted">精神</div><div class="n">${me.spirit}<small>/${me.max_spirit}</small></div></div><div class="stat"><div class="muted">回合</div><div class="n">${state.room.room.round}</div></div><div class="stat"><div class="muted">狀態</div><div class="n" style="font-size:16px">${state.room.room.current_actor_id===me.id?'行動中':'等待'}</div></div></div><div class="section"><h3>快速修改</h3><div class="actions"><button class="btn secondary" id="hpMinus">HP -10</button><button class="btn secondary" id="hpPlus">HP +10</button><button class="btn secondary" id="spMinus">精神 -10</button><button class="btn secondary" id="spPlus">精神 +10</button></div></div></div>`}
-    function diceHTML(){return `<div class="card pad"><h2>骰子</h2><div class="muted">支援 1d20、2d6+3 這類常見骰式。結果會即時同步給整個房間。</div><div class="field"><label>骰式</label><input id="diceNotation" value="1d20" /></div><div class="field"><label>標籤</label><input id="diceLabel" value="一般檢定" /></div><button class="btn" id="rollDice">🎲 擲骰</button><div class="section event-list">${(state.room?.events||[]).filter(e=>e.type==='dice').slice().reverse().map(e=>`<div class="event"><div class="head">${esc(e.username||'玩家')} · ${esc(e.payload.label||'擲骰')} · ${e.created_at}</div><b>${esc(e.payload.notation)}</b> → ${e.payload.rolls.join(' + ')}${e.payload.modifier?` ${e.payload.modifier>0?'+':''}${e.payload.modifier}`:''} = <b>${e.payload.total}</b></div>`).join('')||'<div class="muted">還沒有骰子紀錄</div>'}</div></div>`}
-    function eventsHTML(){return (state.room?.events||[]).slice().reverse().slice(0,20).map(e=>`<div class="event"><div class="head">${esc(e.username||'系統')} · ${e.created_at}</div>${e.type==='chat'?esc(e.payload.text):e.type==='dice'?`🎲 ${esc(e.payload.notation)} = <b>${e.payload.total}</b>`:esc(e.payload.text||'事件更新')}</div>`).join('')||'<div class="muted">尚無事件</div>'}
-    function chatHTML(){return (state.room?.events||[]).filter(e=>e.type==='chat').map(e=>`<div class="event"><div class="head">${esc(e.username||'玩家')}</div>${esc(e.payload.text)}</div>`).join('')||'<div class="muted">開始聊天吧。</div>'}
-    function membersHTML(){return (state.room?.members||[]).map(m=>`<div class="member"><div><div><span class="online-dot ${state.online.includes(m.id)?'on':''}"></span> ${esc(m.display_name)}</div><div class="muted" style="font-size:12px">${m.hp}/${m.max_hp} HP · ${m.role==='gm'?'GM':'玩家'}</div></div><span class="badge ${m.role==='gm'?'gm':''}">${m.role==='gm'?'GM':'玩家'}</span></div>`).join('')||'<div class="muted">沒有玩家</div>'}
-    function updateRightBar(){if(!state.room){$('#onlineMembers').innerHTML='<div class="muted">尚未加入房間</div>';$('#roomInfo').textContent='尚未加入房間';return}$('#onlineMembers').innerHTML=membersHTML();const r=state.room.room;$('#roomInfo').innerHTML=`房間：<b>${esc(r.name)}</b><br>代碼：<b>${r.code}</b><br>狀態：${r.status==='active'?'進行中':'等待開團'}<br>回合：${r.round}`;$('#roomTitle').textContent=r.name;$('#roomCode').textContent=r.code;$('#roomCode').classList.remove('hidden');}
-    function updateAll(){updateRightBar();renderContent();}
-    function bindView(){ $$('[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;$$('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===state.view));renderContent()}); const el=id=>document.getElementById(id);
-      if(el('createRoom'))el('createRoom').onclick=()=>openPrompt('建立跑團','跑團名稱','新的跑團',async name=>{const d=await api('/api/rooms',{method:'POST',body:JSON.stringify({name})});state.room=d;state.view='room';state.socket.emit('room:enter',{roomId:d.room.id});render()});
-      if(el('joinRoom'))el('joinRoom').onclick=()=>openPrompt('加入房間','6 碼房間代碼','ABC123',async code=>{const d=await api('/api/rooms/join',{method:'POST',body:JSON.stringify({code})});state.room=d;state.view='room';state.socket.emit('room:enter',{roomId:d.room.id});render()});
-      if(el('startCampaign'))el('startCampaign').onclick=async()=>{const d=await api(`/api/rooms/${state.room.room.id}/start`,{method:'POST'});state.room=d;state.socket.emit('room:enter',{roomId:d.room.id});render()};
-      if(el('nextTurn'))el('nextTurn').onclick=async()=>{const d=await api(`/api/rooms/${state.room.room.id}/next-turn`,{method:'POST'});state.room=d;state.socket.emit('room:enter',{roomId:d.room.id});render()};
-      if(el('chatForm'))el('chatForm').onsubmit=e=>{e.preventDefault();const text=el('chatInput').value.trim();if(text){state.socket.emit('chat:send',{roomId:state.room.room.id,text});el('chatInput').value='';}};
-      if(el('rollDice'))el('rollDice').onclick=()=>state.socket.emit('dice:roll',{roomId:state.room.room.id,notation:el('diceNotation').value,label:el('diceLabel').value});
-      const me=state.room?.members?.find(m=>m.id===state.user.id);if(me){[['hpMinus','hp',-10],['hpPlus','hp',10],['spMinus','spirit',-10],['spPlus','spirit',10]].forEach(([id,field,delta])=>{if(el(id))el(id).onclick=async()=>{const next=Math.max(0,Number(me[field])+delta);const d=await api(`/api/rooms/${state.room.room.id}/member/${state.user.id}`,{method:'PATCH',body:JSON.stringify({[field]:next})});state.room=d;state.socket.emit('room:enter',{roomId:d.room.id});render()}})}
+
+  <!-- =========================
+       MOBILE NAV
+  ========================= -->
+
+  <nav class="mobile-nav">
+
+    <button
+      data-view="dashboard"
+      class="active"
+    >
+      🏠
+      <span>首頁</span>
+    </button>
+
+    <button
+      data-view="room"
+    >
+      🎲
+      <span>房間</span>
+    </button>
+
+    <button
+      data-view="character"
+    >
+      🧙
+      <span>角色</span>
+    </button>
+
+    <button
+      data-view="skills"
+    >
+      ✨
+      <span>技能</span>
+    </button>
+
+    <button
+      data-view="dice"
+    >
+      🎯
+      <span>骰子</span>
+    </button>
+
+  </nav>
+
+</div>
+
+
+<!-- =========================
+     MODAL
+========================= -->
+
+<div
+  id="modal"
+  class="modal hidden"
+>
+
+  <div class="modal-card">
+
+    <h2 id="modalTitle"></h2>
+
+    <div id="modalBody"></div>
+
+    <div class="modal-actions">
+
+      <button
+        id="modalCancel"
+        class="btn secondary"
+      >
+        取消
+      </button>
+
+      <button
+        id="modalOk"
+        class="btn"
+      >
+        確定
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<div
+  id="toast"
+  class="toast hidden"
+></div>
+
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+  /* =========================================================
+     STATE
+  ========================================================= */
+
+  const state = {
+
+    token:
+      localStorage.getItem('rpg_token'),
+
+    user:null,
+
+    room:null,
+
+    online:[],
+
+    view:'dashboard',
+
+    socket:null,
+
+    authMode:'login'
+
+  };
+
+
+  const $ = s =>
+    document.querySelector(s);
+
+  const $$ = s =>
+    [...document.querySelectorAll(s)];
+
+
+  /* =========================================================
+     HELPERS
+  ========================================================= */
+
+  function esc(s){
+
+    return String(s ?? '')
+      .replace(
+        /[&<>"']/g,
+        c => ({
+          '&':'&amp;',
+          '<':'&lt;',
+          '>':'&gt;',
+          '"':'&quot;',
+          "'":'&#39;'
+        }[c])
+      );
+
+  }
+
+
+  function toast(text){
+
+    $('#toast').textContent = text;
+
+    $('#toast').classList.remove('hidden');
+
+    clearTimeout(window.__toast);
+
+    window.__toast =
+      setTimeout(
+        () =>
+          $('#toast').classList.add('hidden'),
+        2200
+      );
+
+  }
+
+
+  async function api(url, options={}){
+
+    const r =
+      await fetch(
+        url,
+        {
+          ...options,
+
+          headers:{
+            'Content-Type':'application/json',
+
+            ...(state.token
+              ? {
+                  Authorization:
+                    `Bearer ${state.token}`
+                }
+              : {}),
+
+            ...(options.headers || {})
+          }
+        }
+      );
+
+    const d =
+      await r
+        .json()
+        .catch(() => ({}));
+
+    if(!r.ok){
+
+      throw new Error(
+        d.error || '請求失敗'
+      );
+
     }
-    function openPrompt(title,label,value,onok){$('#modalTitle').textContent=title;$('#modalBody').innerHTML=`<div class="field"><label>${label}</label><input id="modalInput" value="${esc(value)}" autofocus></div>`;$('#modal').classList.remove('hidden');const close=()=>$('#modal').classList.add('hidden');$('#modalCancel').onclick=close;$('#modalOk').onclick=async()=>{try{await onok($('#modalInput').value.trim());close()}catch(e){toast(e.message)}}}
-    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-    $$('.auth-tabs .tab').forEach(t=>t.onclick=()=>{$$('.auth-tabs .tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');state.authMode=t.dataset.auth;$('#authSubmit').textContent=state.authMode==='login'?'登入':'註冊';$('#password').autocomplete=state.authMode==='login'?'current-password':'new-password';});
-    $('#authForm').onsubmit=submitAuth;$('#logout').onclick=()=>{localStorage.removeItem('rpg_token');state.token=null;location.reload()};
-    boot();
+
+    return d;
+
+  }
+
+
+  function isDM(){
+
+    return Boolean(
+      state.room &&
+      state.user &&
+      String(state.room.room.owner_id)
+        === String(state.user.id)
+    );
+
+  }
+
+
+  /* =========================================================
+     AUTH
+  ========================================================= */
+
+  function showAuth(){
+
+    $('#auth')
+      .classList
+      .remove('hidden');
+
+    $('#app')
+      .classList
+      .add('hidden');
+
+  }
+
+
+  function showApp(){
+
+    $('#auth')
+      .classList
+      .add('hidden');
+
+    $('#app')
+      .classList
+      .remove('hidden');
+
+    $('#userPill').textContent =
+      state.user?.username || '';
+
+    connectSocket();
+
+    updateDMNavigation();
+
+    render();
+
+  }
+
+
+  async function boot(){
+
+    if(!state.token){
+
+      showAuth();
+
+      return;
+
+    }
+
+    try{
+
+      const d =
+        await api('/api/me');
+
+      state.user =
+        d.user;
+
+      showApp();
+
+    }catch{
+
+      localStorage.removeItem(
+        'rpg_token'
+      );
+
+      state.token = null;
+
+      showAuth();
+
+    }
+
+  }
+
+
+  async function submitAuth(e){
+
+    e.preventDefault();
+
+    $('#authError')
+      .textContent = '';
+
+    const username =
+      $('#username')
+        .value
+        .trim();
+
+    const password =
+      $('#password')
+        .value;
+
+    try{
+
+      const r =
+        await fetch(
+          `/api/auth/${state.authMode}`,
+          {
+            method:'POST',
+
+            headers:{
+              'Content-Type':
+                'application/json'
+            },
+
+            body:
+              JSON.stringify({
+                username,
+                password
+              })
+          }
+        );
+
+      const d =
+        await r.json();
+
+      if(!r.ok){
+
+        throw new Error(
+          d.error || '操作失敗'
+        );
+
+      }
+
+      state.token =
+        d.token;
+
+      localStorage.setItem(
+        'rpg_token',
+        state.token
+      );
+
+      state.user =
+        d.user;
+
+      showApp();
+
+    }catch(err){
+
+      $('#authError')
+        .textContent =
+        err.message;
+
+    }
+
+  }
+
+
+  /* =========================================================
+     SOCKET
+  ========================================================= */
+
+  function connectSocket(){
+
+    if(state.socket){
+
+      state.socket.disconnect();
+
+    }
+
+    state.socket =
+      io({
+        auth:{
+          token:
+            state.token
+        }
+      });
+
+
+    state.socket.on(
+      'connect_error',
+      () =>
+        toast('即時連線失敗')
+    );
+
+
+    state.socket.on(
+      'presence',
+      d => {
+
+        state.online =
+          d.online || [];
+
+        updateRightBar();
+
+      }
+    );
+
+
+    state.socket.on(
+      'room:snapshot',
+      snap => {
+
+        state.room =
+          snap;
+
+        updateDMNavigation();
+
+        updateAll();
+
+      }
+    );
+
+
+    state.socket.on(
+      'error:message',
+      message =>
+        toast(message)
+    );
+
+  }
+
+
+  function enterRoom(roomId){
+
+    if(
+      !state.socket ||
+      !roomId
+    ){
+
+      return;
+
+    }
+
+    state.socket.emit(
+      'room:enter',
+      {
+        roomId
+      }
+    );
+
+  }
+
+
+  /* =========================================================
+     NAVIGATION
+  ========================================================= */
+
+  function updateDMNavigation(){
+
+    const dmNav =
+      $('#dmCharactersNav');
+
+    const dmPanel =
+      $('#dmPanel');
+
+    if(isDM()){
+
+      dmNav
+        ?.classList
+        .remove('hidden');
+
+      dmPanel
+        ?.classList
+        .remove('hidden');
+
+    }else{
+
+      dmNav
+        ?.classList
+        .add('hidden');
+
+      dmPanel
+        ?.classList
+        .add('hidden');
+
+    }
+
+  }
+
+
+  function render(){
+
+    renderContent();
+
+    updateRightBar();
+
+  }
+
+
+  function renderContent(){
+
+    const c =
+      $('#content');
+
+    if(
+      state.view ===
+      'dashboard'
+    ){
+
+      c.innerHTML =
+        dashboardHTML();
+
+    }else if(
+      state.view ===
+      'room'
+    ){
+
+      c.innerHTML =
+        roomHTML();
+
+    }else if(
+      state.view ===
+      'character'
+    ){
+
+      c.innerHTML =
+        characterHTML();
+
+    }else if(
+      state.view ===
+      'skills'
+    ){
+
+      c.innerHTML =
+        skillsHTML();
+
+    }else if(
+      state.view ===
+      'equipment'
+    ){
+
+      c.innerHTML =
+        equipmentHTML();
+
+    }else if(
+      state.view ===
+      'dm-characters'
+    ){
+
+      c.innerHTML =
+        dmCharactersHTML();
+
+    }else if(
+      state.view ===
+      'dice'
+    ){
+
+      c.innerHTML =
+        diceHTML();
+
+    }
+
+    bindView();
+
+  }
+
+
+  /* =========================================================
+     DASHBOARD
+  ========================================================= */
+
+  function dashboardHTML(){
+
+    const r =
+      state.room?.room;
+
+    return `
+
+      <section class="card pad hero">
+
+        <div>
+
+          <div class="muted">
+            歡迎回來，
+            ${esc(state.user?.username)}
+          </div>
+
+          <h2>
+            ${
+              r
+                ? esc(r.name)
+                : '建立你的角色與跑團'
+            }
+          </h2>
+
+          <div class="muted">
+
+            ${
+              r
+                ? `
+                  房間代碼
+                  <b>${esc(r.code)}</b>
+                  ·
+                  ${
+                    r.status === 'active'
+                      ? '跑團進行中'
+                      : '等待開團'
+                  }
+                `
+                : `
+                  角色卡會永久綁定你的帳號。
+                  加入跑團後可以直接使用。
+                `
+            }
+
+          </div>
+
+        </div>
+
+
+        <div class="actions">
+
+          <button
+            class="btn"
+            id="createRoom"
+          >
+            ＋ 建立跑團
+          </button>
+
+          <button
+            class="btn secondary"
+            id="joinRoom"
+          >
+            加入跑團
+          </button>
+
+          ${
+            r &&
+            isDM() &&
+            r.status === 'lobby'
+              ? `
+                <button
+                  class="btn"
+                  id="startCampaign"
+                >
+                  ▶ DM 開團
+                </button>
+              `
+              : ''
+          }
+
+        </div>
+
+      </section>
+
+
+      <div class="stat-grid section">
+
+        <div class="stat">
+          <div class="muted">
+            玩家
+          </div>
+
+          <div class="n">
+            ${state.room?.members?.length || 0}
+          </div>
+        </div>
+
+
+        <div class="stat">
+          <div class="muted">
+            回合
+          </div>
+
+          <div class="n">
+            ${r?.round || '-'}
+          </div>
+        </div>
+
+
+        <div class="stat">
+          <div class="muted">
+            狀態
+          </div>
+
+          <div
+            class="n"
+            style="font-size:18px"
+          >
+            ${
+              r
+                ? (
+                    r.status === 'active'
+                      ? '進行中'
+                      : '存檔'
+                  )
+                : '—'
+            }
+          </div>
+        </div>
+
+
+        <div class="stat">
+          <div class="muted">
+            在線
+          </div>
+
+          <div class="n">
+            ${state.online.length || 0}
+          </div>
+        </div>
+
+      </div>
+
+
+      <div class="grid2 section">
+
+        <div class="card pad">
+
+          <h3>
+            最近事件
+          </h3>
+
+          <div class="event-list">
+            ${eventsHTML()}
+          </div>
+
+        </div>
+
+
+        <div class="card pad">
+
+          <h3>
+            角色系統
+          </h3>
+
+          <div class="muted">
+
+            每個帳號只能擁有一張角色卡。
+            <br><br>
+
+            角色可以隨跑團成長，
+            自由分配屬性點，
+            學習不同技能與職業。
+            <br><br>
+
+            DM 可以查看本場所有玩家的角色資料。
+
+          </div>
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* =========================================================
+     ROOM
+  ========================================================= */
+
+  function roomHTML(){
+
+    if(!state.room){
+
+      return `
+
+        <div class="card pad">
+
+          <h2>
+            尚未加入跑團
+          </h2>
+
+          <div class="muted">
+            回到首頁建立或加入跑團。
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+    const r =
+      state.room.room;
+
+    return `
+
+      <div class="card pad hero">
+
+        <div>
+
+          <div class="muted">
+            ${esc(r.name)}
+          </div>
+
+          <h2>
+            ${
+              r.status === 'active'
+                ? '⚔️ 跑團進行中'
+                : '🕯️ 跑團存檔'
+            }
+          </h2>
+
+          <div class="muted">
+
+            房間代碼：
+            <b>${esc(r.code)}</b>
+
+            ·
+
+            第
+            ${r.round}
+            回合
+
+          </div>
+
+        </div>
+
+
+        <div class="actions">
+
+          ${
+            isDM() &&
+            r.status === 'lobby'
+              ? `
+                <button
+                  class="btn"
+                  id="startCampaign"
+                >
+                  ▶ DM 開始跑團
+                </button>
+              `
+              : ''
+          }
+
+
+          ${
+            isDM() &&
+            r.status === 'active'
+              ? `
+                <button
+                  class="btn secondary"
+                  id="nextTurn"
+                >
+                  下一回合
+                </button>
+              `
+              : ''
+          }
+
+
+          <button
+            class="btn danger"
+            id="leaveRoom"
+          >
+            ${
+              isDM()
+                ? '解散跑團'
+                : '離開跑團'
+            }
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="grid2 section">
+
+        <div class="card chat">
+
+          <div
+            id="chatLog"
+            class="chat-log"
+          >
+            ${chatHTML()}
+          </div>
+
+
+          <form
+            id="chatForm"
+            class="chat-input"
+          >
+
+            <input
+              id="chatInput"
+              placeholder="輸入訊息…"
+              maxlength="1000"
+            />
+
+            <button
+              class="btn"
+            >
+              送出
+            </button>
+
+          </form>
+
+        </div>
+
+
+        <div class="card pad">
+
+          <h3>
+            本場玩家
+          </h3>
+
+          <div class="member-list">
+            ${membersHTML()}
+          </div>
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* =========================================================
+     CHARACTER
+  ========================================================= */
+
+  function getMyCharacter(){
+
+    if(!state.room){
+
+      return null;
+
+    }
+
+    return state.room.members?.find(
+      m =>
+        String(m.id) ===
+        String(state.user.id)
+    );
+
+  }
+
+
+  function characterHTML(){
+
+    const me =
+      getMyCharacter();
+
+    if(!me){
+
+      return `
+
+        <div class="card pad">
+
+          <h2>
+            我的角色
+          </h2>
+
+          <div class="muted">
+            目前還沒有角色卡。
+          </div>
+
+          <div class="section">
+
+            <button
+              class="btn"
+              id="createCharacter"
+            >
+              建立角色卡
+            </button>
+
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+
+    /*
+      這裡兼容目前 server 回傳的基本資料。
+      如果後續 server 增加完整 character JSON，
+      UI 會直接讀取 character 欄位。
+    */
+
+    const c =
+      me.character || me;
+
+
+    const stats = {
+
+      敏捷:
+        Number(
+          c.agility ??
+          c.dexterity ??
+          0
+        ),
+
+      力量:
+        Number(
+          c.strength ??
+          0
+        ),
+
+      體質:
+        Number(
+          c.constitution ??
+          0
+        ),
+
+      精神:
+        Number(
+          c.spirit_stat ??
+          c.mental ??
+          0
+        ),
+
+      大道:
+        Number(
+          c.great_way ??
+          c.dao ??
+          0
+        )
+
+    };
+
+
+    const affinity = {
+
+      光:
+        Number(c.light_affinity ?? 0),
+
+      暗:
+        Number(c.dark_affinity ?? 0),
+
+      金:
+        Number(c.metal_affinity ?? 0),
+
+      木:
+        Number(c.wood_affinity ?? 0),
+
+      水:
+        Number(c.water_affinity ?? 0),
+
+      火:
+        Number(c.fire_affinity ?? 0),
+
+      土:
+        Number(c.earth_affinity ?? 0)
+
+    };
+
+
+    const level =
+      c.level ?? me.level ?? 1;
+
+    const tier =
+      c.tier ?? me.tier ?? 1;
+
+    const freePoints =
+      c.free_attribute_points ??
+      c.attribute_points ??
+      0;
+
+
+    const luck =
+      c.luck ??
+      0;
+
+    const endurance =
+      c.endurance ??
+      Math.floor(
+        (
+          stats.體質 +
+          stats.精神
+        ) / 2
+      );
+
+    const sanity =
+      c.sanity ??
+      Math.floor(
+        stats.精神 * 1.2
+      );
+
+    const will =
+      c.will ??
+      Math.floor(
+        stats.精神 * .8
+      );
+
+    const hp =
+      c.hp ??
+      me.hp ??
+      stats.體質 * 2;
+
+    const maxHp =
+      c.max_hp ??
+      me.max_hp ??
+      stats.體質 * 2;
+
+
+    return `
+
+      <div class="card pad">
+
+        <div class="character-header">
+
+          <div>
+
+            <div class="muted">
+              角色名稱
+            </div>
+
+            <div class="character-name">
+              ${esc(
+                c.name ??
+                me.display_name ??
+                state.user.username
+              )}
+            </div>
+
+            <div class="character-subtitle">
+
+              ${esc(
+                c.description ??
+                ''
+              )}
+
+            </div>
+
+          </div>
+
+
+          <div>
+
+            <span
+              class="badge"
+            >
+              ${esc(
+                c.faction ??
+                '未設定陣營'
+              )}
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <!-- 等階 -->
+
+        <div class="character-section">
+
+          <div class="growth-box">
+
+            <div>
+
+              <div class="muted small">
+                等階
+              </div>
+
+              <b>
+                ${tier}階
+                ${level}等
+              </b>
+
+            </div>
+
+
+            <div>
+
+              <div class="muted small">
+                自由屬性點
+              </div>
+
+              <b>
+                ${freePoints}
+              </b>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- 職業 -->
+
+        <div class="character-section">
+
+          <div class="character-section-title">
+            職業
+          </div>
+
+          <div class="job-list">
+
+            <div class="job">
+
+              <div class="job-title">
+                主職業
+              </div>
+
+              <div>
+                ${esc(
+                  c.main_class ??
+                  c.main_job ??
+                  '未設定'
+                )}
+              </div>
+
+              <div class="job-rank">
+                ${esc(
+                  c.main_class_rank ??
+                  c.main_job_rank ??
+                  ''
+                )}
+              </div>
+
+            </div>
+
+
+            ${
+              (
+                c.sub_classes ||
+                c.sub_jobs ||
+                []
+              )
+              .map(
+                job => `
+
+                  <div class="job">
+
+                    <div class="job-title">
+                      副職業
+                    </div>
+
+                    <div>
+                      ${esc(
+                        typeof job === 'string'
+                          ? job
+                          : job.name
+                      )}
+                    </div>
+
+                    ${
+                      typeof job === 'object'
+                        ? `
+                          <div class="job-rank">
+                            ${esc(
+                              job.rank || ''
+                            )}
+                          </div>
+                        `
+                        : ''
+                    }
+
+                  </div>
+
+                `
+              )
+              .join('')
+
+            }
+
+          </div>
+
+        </div>
+
+
+        <!-- 基本屬性 -->
+
+        <div class="character-section">
+
+          <div class="character-section-title">
+            基本屬性
+          </div>
+
+          <div class="attribute-grid">
+
+            ${Object.entries(stats)
+              .map(
+                ([name,value]) => `
+
+                  <div class="attribute">
+
+                    <div class="attribute-name">
+                      ${name}
+                    </div>
+
+                    <div class="attribute-value">
+                      ${value}
+                    </div>
+
+                  </div>
+
+                `
+              )
+              .join('')}
+
+          </div>
+
+        </div>
+
+
+        <!-- 特殊屬性 -->
+
+        <div class="character-section">
+
+          <div class="character-section-title">
+            特殊屬性
+          </div>
+
+          <div class="attribute-grid">
+
+            <div class="attribute">
+              <div class="attribute-name">
+                幸運
+              </div>
+              <div class="attribute-value">
+                ${luck}
+              </div>
+            </div>
+
+            <div class="attribute">
+              <div class="attribute-name">
+                耐力
+              </div>
+              <div class="attribute-value">
+                ${endurance}
+              </div>
+            </div>
+
+            <div class="attribute">
+              <div class="attribute-name">
+                理智
+              </div>
+              <div class="attribute-value">
+                ${sanity}
+              </div>
+            </div>
+
+            <div class="attribute">
+              <div class="attribute-name">
+                意志
+              </div>
+              <div class="attribute-value">
+                ${will}
+              </div>
+            </div>
+
+            <div class="attribute">
+              <div class="attribute-name">
+                HP
+              </div>
+              <div class="attribute-value">
+                ${hp}
+                <small>/${maxHp}</small>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- 五行與光暗 -->
+
+        <div class="character-section">
+
+          <div class="character-section-title">
+            光暗五行親和
+          </div>
+
+          <div class="affinity-grid">
+
+            ${Object.entries(affinity)
+              .map(
+                ([name,value]) => `
+
+                  <div class="affinity">
+
+                    <div class="icon">
+                      ${
+                        {
+                          光:'☀️',
+                          暗:'🌑',
+                          金:'⚙️',
+                          木:'🌿',
+                          水:'💧',
+                          火:'🔥',
+                          土:'🪨'
+                        }[name]
+                      }
+                    </div>
+
+                    <div class="name">
+                      ${name}
+                    </div>
+
+                    <div class="value">
+                      ${value}
+                    </div>
+
+                  </div>
+
+                `
+              )
+              .join('')}
+
+          </div>
+
+        </div>
+
+
+        <!-- 技能 -->
+
+        <div class="character-section">
+
+          <div class="character-section-title">
+            技能
+          </div>
+
+          <div class="skill-list">
+
+            ${
+              (
+                c.skills ||
+                []
+              ).length
+
+              ?
+
+              c.skills
+                .map(
+                  skill => `
+
+                    <div class="skill">
+
+                      <div class="skill-header">
+
+                        <div class="skill-name">
+                          ${esc(
+                            typeof skill === 'string'
+                              ? skill
+                              : skill.name
+                          )}
+                        </div>
+
+                        ${
+                          typeof skill === 'object'
+                            ? `
+                              <div class="skill-level">
+                                ${esc(
+                                  skill.level
+                                    ? `${skill.level}級`
+                                    : ''
+                                )}
+                              </div>
+                            `
+                            : ''
+                        }
+
+                      </div>
+
+
+                      ${
+                        typeof skill === 'object'
+                          ? `
+                            <div class="skill-description">
+                              ${esc(
+                                skill.description ||
+                                ''
+                              )}
+                            </div>
+                          `
+                          : ''
+                      }
+
+                    </div>
+
+                  `
+                )
+                .join('')
+
+              :
+
+              `
+                <div class="muted">
+                  尚未設定技能
+                </div>
+              `
+            }
+
+          </div>
+
+        </div>
+
+
+        <!-- 裝備 -->
+
+        <div class="character-section">
+
+          <div class="character-section-title">
+            裝備
+          </div>
+
+          <div class="equipment-grid">
+
+            ${
+              (
+                c.equipment ||
+                []
+              ).length
+
+              ?
+
+              c.equipment
+                .map(
+                  item => `
+
+                    <div class="equipment">
+
+                      <b>
+                        ${esc(
+                          typeof item === 'string'
+                            ? item
+                            : item.name
+                        )}
+                      </b>
+
+                      ${
+                        typeof item === 'object'
+                          ? `
+                            <div class="muted small">
+                              ${esc(
+                                item.type ||
+                                ''
+                              )}
+                            </div>
+                          `
+                          : ''
+                      }
+
+                    </div>
+
+                  `
+                )
+                .join('')
+
+              :
+
+              `
+                <div class="muted">
+                  尚未裝備物品
+                </div>
+              `
+            }
+
+          </div>
+
+        </div>
+
+
+        <!-- 成長 -->
+
+        <div class="character-section">
+
+          <div class="character-section-title">
+            角色成長
+          </div>
+
+          <div class="growth-box">
+
+            <div>
+
+              <div class="muted small">
+                本角色屬於帳號
+              </div>
+
+              <b>
+                @${esc(state.user.username)}
+              </b>
+
+            </div>
+
+            <button
+              class="btn secondary"
+              id="editCharacter"
+              style="width:auto"
+            >
+              編輯角色
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* =========================================================
+     SKILLS
+  ========================================================= */
+
+  function skillsHTML(){
+
+    const me =
+      getMyCharacter();
+
+    const skills =
+      me?.character?.skills ||
+      [];
+
+    return `
+
+      <div class="card pad">
+
+        <h2>
+          技能
+        </h2>
+
+        <div class="muted">
+          每個角色的職業、技能可以不同。
+          後續可以由 DM 配置技能資料。
+        </div>
+
+
+        <div class="skill-list section">
+
+          ${
+            skills.length
+
+              ?
+
+              skills.map(
+                skill => `
+
+                  <div class="skill">
+
+                    <div class="skill-header">
+
+                      <div class="skill-name">
+                        ${esc(
+                          typeof skill === 'string'
+                            ? skill
+                            : skill.name
+                        )}
+                      </div>
+
+                      ${
+                        typeof skill === 'object'
+                          ? `
+                            <div class="skill-level">
+                              ${esc(
+                                skill.level
+                                  ? `${skill.level}級`
+                                  : ''
+                              )}
+                            </div>
+                          `
+                          : ''
+                      }
+
+                    </div>
+
+
+                    ${
+                      typeof skill === 'object'
+                        ? `
+                          <div class="skill-description">
+                            ${esc(
+                              skill.description ||
+                              '尚無技能描述'
+                            )}
+                          </div>
+                        `
+                        : ''
+                    }
+
+                  </div>
+
+                `
+              ).join('')
+
+              :
+
+              `
+                <div class="muted">
+                  尚未擁有技能。
+                </div>
+              `
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* =========================================================
+     EQUIPMENT
+  ========================================================= */
+
+  function equipmentHTML(){
+
+    const me =
+      getMyCharacter();
+
+    const equipment =
+      me?.character?.equipment ||
+      [];
+
+    return `
+
+      <div class="card pad">
+
+        <h2>
+          裝備
+        </h2>
+
+        <div class="muted">
+          武器分類目前預留為：
+          遠距離物理系、近距離物理系、
+          遠距離能量系、近距離能量系。
+        </div>
+
+
+        <div class="equipment-grid section">
+
+          ${
+            equipment.length
+
+              ?
+
+              equipment.map(
+                item => `
+
+                  <div class="equipment">
+
+                    <b>
+                      ${esc(
+                        typeof item === 'string'
+                          ? item
+                          : item.name
+                      )}
+                    </b>
+
+                    ${
+                      typeof item === 'object'
+                        ? `
+                          <div class="muted small">
+                            ${esc(
+                              item.type ||
+                              '裝備'
+                            )}
+                          </div>
+
+                          <div
+                            class="muted small"
+                            style="margin-top:5px"
+                          >
+                            ${esc(
+                              item.description ||
+                              ''
+                            )}
+                          </div>
+                        `
+                        : ''
+                    }
+
+                  </div>
+
+                `
+              ).join('')
+
+              :
+
+              `
+                <div class="muted">
+                  尚未裝備物品。
+                </div>
+              `
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* =========================================================
+     DM CHARACTER LIST
+  ========================================================= */
+
+  function dmCharactersHTML(){
+
+    if(!isDM()){
+
+      return `
+
+        <div class="card pad">
+
+          <h2>
+            玩家角色
+          </h2>
+
+          <div class="muted">
+            只有本場 DM 可以查看所有玩家角色。
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+
+    const members =
+      state.room?.members ||
+      [];
+
+
+    return `
+
+      <div class="card pad">
+
+        <div class="hero">
+
+          <div>
+
+            <h2>
+              玩家角色
+            </h2>
+
+            <div class="muted">
+              DM 可以查看本場所有角色卡與帳號歸屬。
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div class="character-list section">
+
+          ${
+            members.length
+
+              ?
+
+              members.map(
+                m => `
+
+                  <button
+                    class="character-list-item"
+                    data-character-user="${m.id}"
+                  >
+
+                    <div>
+
+                      <div>
+                        <b>
+                          ${esc(
+                            m.display_name
+                          )}
+                        </b>
+
+                        ${
+                          m.role === 'dm'
+                            ? `
+                              <span
+                                class="badge dm"
+                              >
+                                DM
+                              </span>
+                            `
+                            : ''
+                        }
+
+                      </div>
+
+                      <div class="muted small">
+
+                        帳號：
+                        @${esc(m.username)}
+
+                        ·
+
+                        HP：
+                        ${m.hp}/${m.max_hp}
+
+                      </div>
+
+                    </div>
+
+
+                    <span>
+                      查看 →
+                    </span>
+
+                  </button>
+
+                `
+              ).join('')
+
+              :
+
+              `
+                <div class="muted">
+                  沒有玩家。
+                </div>
+              `
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* =========================================================
+     DICE
+  ========================================================= */
+
+  function diceHTML(){
+
+    return `
+
+      <div class="card pad">
+
+        <h2>
+          骰子
+        </h2>
+
+        <div class="muted">
+          支援 1d20、2d6+3
+          等常見骰式。
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            骰式
+          </label>
+
+          <input
+            id="diceNotation"
+            value="1d20"
+          />
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            標籤
+          </label>
+
+          <input
+            id="diceLabel"
+            value="一般檢定"
+          />
+
+        </div>
+
+
+        <button
+          class="btn"
+          id="rollDice"
+        >
+          🎲 擲骰
+        </button>
+
+
+        <div class="section event-list">
+
+          ${
+            (
+              state.room?.events ||
+              []
+            )
+            .filter(
+              e =>
+                e.type === 'dice'
+            )
+            .slice()
+            .reverse()
+            .map(
+              e => `
+
+                <div class="event">
+
+                  <div class="head">
+
+                    ${esc(
+                      e.username ||
+                      '玩家'
+                    )}
+
+                    ·
+
+                    ${esc(
+                      e.payload.label ||
+                      '擲骰'
+                    )}
+
+                  </div>
+
+
+                  <b>
+                    ${esc(
+                      e.payload.notation
+                    )}
+                  </b>
+
+                  →
+
+                  ${(
+                    e.payload.rolls ||
+                    []
+                  ).join(' + ')}
+
+                  ${
+                    e.payload.modifier
+                      ? `
+                        ${
+                          e.payload.modifier > 0
+                            ? '+'
+                            : ''
+                        }${e.payload.modifier}
+                      `
+                      : ''
+                  }
+
+                  =
+
+                  <b>
+                    ${e.payload.total}
+                  </b>
+
+                </div>
+
+              `
+            )
+            .join('')
+
+            ||
+
+            `
+              <div class="muted">
+                還沒有骰子紀錄。
+              </div>
+            `
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* =========================================================
+     EVENTS
+  ========================================================= */
+
+  function eventsHTML(){
+
+    return (
+
+      state.room?.events ||
+      []
+    )
+    .slice()
+    .reverse()
+    .slice(0,20)
+    .map(
+      e => `
+
+        <div class="event">
+
+          <div class="head">
+
+            ${esc(
+              e.username ||
+              '系統'
+            )}
+
+          </div>
+
+
+          ${
+            e.type === 'chat'
+
+              ?
+
+              esc(
+                e.payload.text
+              )
+
+              :
+
+            e.type === 'dice'
+
+              ?
+
+              `
+                🎲
+                ${esc(
+                  e.payload.notation
+                )}
+                =
+                <b>
+                  ${e.payload.total}
+                </b>
+              `
+
+              :
+
+              esc(
+                e.payload.text ||
+                '事件更新'
+              )
+          }
+
+        </div>
+
+      `
+    )
+    .join('')
+
+    ||
+
+    `
+      <div class="muted">
+        尚無事件。
+      </div>
+    `;
+
+  }
+
+
+  /* =========================================================
+     CHAT
+  ========================================================= */
+
+  function chatHTML(){
+
+    const chats =
+      (
+        state.room?.events ||
+        []
+      )
+      .filter(
+        e =>
+          e.type === 'chat'
+      );
+
+
+    return chats.length
+
+      ?
+
+      chats.map(
+        e => `
+
+          <div class="chat-message">
+
+            <div class="chat-name">
+              ${esc(
+                e.username ||
+                '玩家'
+              )}
+            </div>
+
+            <div class="chat-bubble">
+              ${esc(
+                e.payload.text
+              )}
+            </div>
+
+          </div>
+
+        `
+      ).join('')
+
+      :
+
+      `
+        <div class="muted">
+          開始聊天吧。
+        </div>
+      `;
+
+  }
+
+
+  /* =========================================================
+     MEMBERS
+  ========================================================= */
+
+  function membersHTML(){
+
+    return (
+
+      state.room?.members ||
+      []
+    )
+    .map(
+      m => `
+
+        <div class="member">
+
+          <div>
+
+            <div>
+
+              <span
+                class="online-dot
+                ${
+                  state.online.includes(m.id)
+                    ? 'on'
+                    : ''
+                }"
+              ></span>
+
+              ${esc(
+                m.display_name
+              )}
+
+            </div>
+
+
+            <div
+              class="muted"
+              style="font-size:12px"
+            >
+
+              ${m.hp}/${m.max_hp}
+              HP
+
+              ·
+
+              ${
+                m.role === 'dm'
+                  ? 'DM'
+                  : '玩家'
+              }
+
+            </div>
+
+          </div>
+
+
+          <span
+            class="badge
+            ${
+              m.role === 'dm'
+                ? 'dm'
+                : ''
+            }"
+          >
+
+            ${
+              m.role === 'dm'
+                ? 'DM'
+                : '玩家'
+            }
+
+          </span>
+
+        </div>
+
+      `
+    )
+    .join('')
+
+    ||
+
+    `
+      <div class="muted">
+        沒有玩家。
+      </div>
+    `;
+
+  }
+
+
+  /* =========================================================
+     RIGHT BAR
+  ========================================================= */
+
+  function updateRightBar(){
+
+    if(!state.room){
+
+      $('#onlineMembers').innerHTML =
+        '<div class="muted">尚未加入跑團</div>';
+
+      $('#roomInfo').textContent =
+        '尚未加入跑團';
+
+      $('#roomTitle').textContent =
+        '我的跑團';
+
+      $('#roomCode')
+        .classList
+        .add('hidden');
+
+      return;
+
+    }
+
+
+    $('#onlineMembers').innerHTML =
+      membersHTML();
+
+
+    const r =
+      state.room.room;
+
+
+    $('#roomInfo').innerHTML = `
+
+      房間：
+      <b>${esc(r.name)}</b>
+
+      <br>
+
+      代碼：
+      <b>${esc(r.code)}</b>
+
+      <br>
+
+      身分：
+      ${
+        isDM()
+          ? '<b>DM</b>'
+          : '玩家'
+      }
+
+      <br>
+
+      狀態：
+      ${
+        r.status === 'active'
+          ? '進行中'
+          : '存檔'
+      }
+
+      <br>
+
+      回合：
+      ${r.round}
+
+    `;
+
+
+    $('#roomTitle').textContent =
+      r.name;
+
+
+    $('#roomCode').textContent =
+      r.code;
+
+
+    $('#roomCode')
+      .classList
+      .remove('hidden');
+
+  }
+
+
+  /* =========================================================
+     BIND VIEW
+  ========================================================= */
+
+  function bindView(){
+
+    $$('[data-view]')
+      .forEach(
+        b => {
+
+          b.onclick = () => {
+
+            const view =
+              b.dataset.view;
+
+            if(
+              view === 'dm-characters' &&
+              !isDM()
+            ){
+
+              toast(
+                '只有 DM 可以查看玩家角色'
+              );
+
+              return;
+
+            }
+
+
+            state.view =
+              view;
+
+
+            $$('[data-view]')
+              .forEach(
+                x =>
+                  x.classList.toggle(
+                    'active',
+                    x.dataset.view ===
+                    state.view
+                  )
+              );
+
+
+            renderContent();
+
+          };
+
+        }
+      );
+
+
+    const el =
+      id =>
+        document.getElementById(id);
+
+
+    /* 建立跑團 */
+
+    if(el('createRoom')){
+
+      el('createRoom').onclick =
+        () =>
+          openPrompt(
+            '建立跑團',
+            '跑團名稱',
+            '新的D&D跑團',
+            async name => {
+
+              const d =
+                await api(
+                  '/api/rooms',
+                  {
+                    method:'POST',
+
+                    body:
+                      JSON.stringify({
+                        name
+                      })
+                  }
+                );
+
+
+              state.room =
+                d;
+
+              state.view =
+                'room';
+
+
+              enterRoom(
+                d.room.id
+              );
+
+
+              updateDMNavigation();
+
+              render();
+
+            }
+          );
+
+    }
+
+
+    /* 加入跑團 */
+
+    if(el('joinRoom')){
+
+      el('joinRoom').onclick =
+        () =>
+          openPrompt(
+            '加入跑團',
+            '6 碼房間代碼',
+            '',
+            async code => {
+
+              const d =
+                await api(
+                  '/api/rooms/join',
+                  {
+                    method:'POST',
+
+                    body:
+                      JSON.stringify({
+                        code:
+                          code
+                          .trim()
+                          .toUpperCase()
+                      })
+                  }
+                );
+
+
+              state.room =
+                d;
+
+              state.view =
+                'room';
+
+
+              enterRoom(
+                d.room.id
+              );
+
+
+              updateDMNavigation();
+
+              render();
+
+            }
+          );
+
+    }
+
+
+    /* DM 開團 */
+
+    if(el('startCampaign')){
+
+      el('startCampaign').onclick =
+        async () => {
+
+          try{
+
+            const d =
+              await api(
+                `/api/rooms/${state.room.room.id}/start`,
+                {
+                  method:'POST'
+                }
+              );
+
+
+            state.room =
+              d;
+
+
+            enterRoom(
+              d.room.id
+            );
+
+
+            render();
+
+          }catch(e){
+
+            toast(e.message);
+
+          }
+
+        };
+
+    }
+
+
+    /* 下一回合 */
+
+    if(el('nextTurn')){
+
+      el('nextTurn').onclick =
+        async () => {
+
+          try{
+
+            const d =
+              await api(
+                `/api/rooms/${state.room.room.id}/next-turn`,
+                {
+                  method:'POST'
+                }
+              );
+
+
+            state.room =
+              d;
+
+            enterRoom(
+              d.room.id
+            );
+
+            render();
+
+          }catch(e){
+
+            toast(e.message);
+
+          }
+
+        };
+
+    }
+
+
+    /* 離開 / 解散 */
+
+    if(el('leaveRoom')){
+
+      el('leaveRoom').onclick =
+        async () => {
+
+          const message =
+            isDM()
+              ? 'DM 離開後會結束這個跑團存檔。確定要解散嗎？'
+              : '確定要離開這個跑團嗎？';
+
+
+          if(
+            !confirm(message)
+          ){
+
+            return;
+
+          }
+
+
+          try{
+
+            /*
+              對應新版 server.js 的
+              leave / dissolve API。
+            */
+
+            await api(
+              `/api/rooms/${state.room.room.id}/leave`,
+              {
+                method:'POST'
+              }
+            );
+
+
+            state.room =
+              null;
+
+            state.view =
+              'dashboard';
+
+            state.online =
+              [];
+
+            updateDMNavigation();
+
+            render();
+
+            toast(
+              isDM()
+                ? '跑團已結束'
+                : '已離開跑團'
+            );
+
+          }catch(e){
+
+            toast(e.message);
+
+          }
+
+        };
+
+    }
+
+
+    /* 聊天 */
+
+    if(el('chatForm')){
+
+      el('chatForm').onsubmit =
+        e => {
+
+          e.preventDefault();
+
+
+          const text =
+            el('chatInput')
+              .value
+              .trim();
+
+
+          if(!text){
+
+            return;
+
+          }
+
+
+          state.socket.emit(
+            'chat:send',
+            {
+              roomId:
+                state.room.room.id,
+
+              text
+            }
+          );
+
+
+          el('chatInput')
+            .value = '';
+
+        };
+
+    }
+
+
+    /* 骰子 */
+
+    if(el('rollDice')){
+
+      el('rollDice').onclick =
+        () => {
+
+          if(!state.room){
+
+            toast(
+              '請先加入跑團'
+            );
+
+            return;
+
+          }
+
+
+          state.socket.emit(
+            'dice:roll',
+            {
+              roomId:
+                state.room.room.id,
+
+              notation:
+                el(
+                  'diceNotation'
+                ).value,
+
+              label:
+                el(
+                  'diceLabel'
+                ).value
+            }
+          );
+
+        };
+
+    }
+
+
+    /* 建立角色 */
+
+    if(el('createCharacter')){
+
+      el('createCharacter').onclick =
+        () =>
+          openCharacterEditor();
+
+    }
+
+
+    /* 編輯角色 */
+
+    if(el('editCharacter')){
+
+      el('editCharacter').onclick =
+        () =>
+          openCharacterEditor();
+
+    }
+
+
+    /* DM 查看角色 */
+
+    $$('[data-character-user]')
+      .forEach(
+        button => {
+
+          button.onclick =
+            () => {
+
+              const userId =
+                button.dataset
+                  .characterUser;
+
+              const member =
+                state.room?.members?.find(
+                  m =>
+                    String(m.id) ===
+                    String(userId)
+                );
+
+              if(!member){
+
+                return;
+
+              }
+
+
+              openCharacterView(
+                member
+              );
+
+            };
+
+        }
+      );
+
+  }
+
+
+  /* =========================================================
+     CHARACTER EDITOR
+  ========================================================= */
+
+  function openCharacterEditor(){
+
+    const me =
+      getMyCharacter();
+
+
+    const c =
+      me?.character || {};
+
+
+    $('#modalTitle')
+      .textContent =
+      me
+        ? '編輯角色卡'
+        : '建立角色卡';
+
+
+    $('#modalBody').innerHTML = `
+
+      <div class="field">
+
+        <label>
+          角色名稱
+        </label>
+
+        <input
+          id="charName"
+          maxlength="30"
+          value="${esc(
+            c.name ||
+            me?.display_name ||
+            state.user.username
+          )}"
+        />
+
+      </div>
+
+
+      <div class="field">
+
+        <label>
+          陣營
+        </label>
+
+        <select id="charFaction">
+
+          <option value="東國"
+            ${
+              c.faction === '東國'
+                ? 'selected'
+                : ''
+            }>
+            東國
+          </option>
+
+          <option value="西國"
+            ${
+              c.faction === '西國'
+                ? 'selected'
+                : ''
+            }>
+            西國
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <div class="field">
+
+        <label>
+          主職業
+        </label>
+
+        <input
+          id="charMainClass"
+          maxlength="50"
+          value="${esc(
+            c.main_class ||
+            ''
+          )}"
+          placeholder="例如：玩家、精神病人"
+        />
+
+      </div>
+
+
+      <div class="field">
+
+        <label>
+          主職業等階
+        </label>
+
+        <input
+          id="charMainClassRank"
+          maxlength="10"
+          value="${esc(
+            c.main_class_rank ||
+            'G'
+          )}"
+          placeholder="G～SSS"
+        />
+
+      </div>
+
+
+      <div class="field">
+
+        <label>
+          角色描述
+        </label>
+
+        <textarea
+          id="charDescription"
+          maxlength="1000"
+        >${esc(
+          c.description ||
+          ''
+        )}</textarea>
+
+      </div>
+
+
+      <div class="muted small">
+        屬性、技能與裝備會由後續系統逐步加入。
+      </div>
+
+    `;
+
+
+    $('#modal')
+      .classList
+      .remove('hidden');
+
+
+    const close =
+      () =>
+        $('#modal')
+          .classList
+          .add('hidden');
+
+
+    $('#modalCancel')
+      .onclick =
+      close;
+
+
+    $('#modalOk')
+      .onclick =
+      async () => {
+
+        try{
+
+          const payload = {
+
+            name:
+              $('#charName')
+                .value
+                .trim(),
+
+            faction:
+              $('#charFaction')
+                .value,
+
+            main_class:
+              $('#charMainClass')
+                .value
+                .trim(),
+
+            main_class_rank:
+              $('#charMainClassRank')
+                .value
+                .trim(),
+
+            description:
+              $('#charDescription')
+                .value
+                .trim()
+
+          };
+
+
+          /*
+            對應新版 server.js
+            的角色卡 API。
+          */
+
+          const d =
+            await api(
+              '/api/character',
+              {
+                method:
+                  me
+                    ? 'PATCH'
+                    : 'POST',
+
+                body:
+                  JSON.stringify(
+                    payload
+                  )
+              }
+            );
+
+
+          if(
+            d.room
+          ){
+
+            state.room =
+              d.room;
+
+          }
+
+
+          close();
+
+          render();
+
+          toast(
+            me
+              ? '角色卡已更新'
+              : '角色卡建立成功'
+          );
+
+        }catch(e){
+
+          toast(
+            e.message
+          );
+
+        }
+
+      };
+
+  }
+
+
+  /* =========================================================
+     DM VIEW CHARACTER
+  ========================================================= */
+
+  function openCharacterView(member){
+
+    const c =
+      member.character ||
+      {};
+
+
+    $('#modalTitle')
+      .textContent =
+      c.name ||
+      member.display_name;
+
+
+    $('#modalBody').innerHTML = `
+
+      <div class="character-section">
+
+        <div class="muted small">
+          帳號
+        </div>
+
+        <b>
+          @${esc(
+            member.username
+          )}
+        </b>
+
+      </div>
+
+
+      <div class="character-section">
+
+        <div class="muted small">
+          陣營
+        </div>
+
+        <b>
+          ${esc(
+            c.faction ||
+            '未設定'
+          )}
+        </b>
+
+      </div>
+
+
+      <div class="character-section">
+
+        <div class="muted small">
+          主職業
+        </div>
+
+        <b>
+          ${esc(
+            c.main_class ||
+            '未設定'
+          )}
+        </b>
+
+        <div class="muted small">
+          ${esc(
+            c.main_class_rank ||
+            ''
+          )}
+        </div>
+
+      </div>
+
+
+      <div class="character-section">
+
+        <div class="muted small">
+          等階
+        </div>
+
+        <b>
+          ${c.tier || 1}階
+          ${c.level || 1}等
+        </b>
+
+      </div>
+
+
+      <div class="character-section">
+
+        <div class="muted small">
+          HP
+        </div>
+
+        <b>
+          ${member.hp}/${member.max_hp}
+        </b>
+
+      </div>
+
+
+      <div class="character-section">
+
+        <div class="muted small">
+          描述
+        </div>
+
+        <div>
+          ${esc(
+            c.description ||
+            '沒有角色描述'
+          )}
+        </div>
+
+      </div>
+
+    `;
+
+
+    $('#modal')
+      .classList
+      .remove('hidden');
+
+
+    $('#modalCancel')
+      .onclick =
+      () =>
+        $('#modal')
+          .classList
+          .add('hidden');
+
+
+    $('#modalOk')
+      .onclick =
+      () =>
+        $('#modal')
+          .classList
+          .add('hidden');
+
+  }
+
+
+  /* =========================================================
+     PROMPT
+  ========================================================= */
+
+  function openPrompt(
+    title,
+    label,
+    value,
+    onok
+  ){
+
+    $('#modalTitle')
+      .textContent =
+      title;
+
+
+    $('#modalBody').innerHTML = `
+
+      <div class="field">
+
+        <label>
+          ${esc(label)}
+        </label>
+
+        <input
+          id="modalInput"
+          value="${esc(value)}"
+          autofocus
+        />
+
+      </div>
+
+    `;
+
+
+    $('#modal')
+      .classList
+      .remove('hidden');
+
+
+    const close =
+      () =>
+        $('#modal')
+          .classList
+          .add('hidden');
+
+
+    $('#modalCancel')
+      .onclick =
+      close;
+
+
+    $('#modalOk')
+      .onclick =
+      async () => {
+
+        try{
+
+          await onok(
+            $('#modalInput')
+              .value
+              .trim()
+          );
+
+          close();
+
+        }catch(e){
+
+          toast(
+            e.message
+          );
+
+        }
+
+      };
+
+  }
+
+
+  /* =========================================================
+     AUTH TABS
+  ========================================================= */
+
+  $$('.auth-tabs .tab')
+    .forEach(
+      tab => {
+
+        tab.onclick =
+          () => {
+
+            $$('.auth-tabs .tab')
+              .forEach(
+                x =>
+                  x.classList
+                    .remove('active')
+              );
+
+
+            tab.classList
+              .add('active');
+
+
+            state.authMode =
+              tab.dataset.auth;
+
+
+            $('#authSubmit')
+              .textContent =
+              state.authMode === 'login'
+                ? '登入'
+                : '註冊';
+
+
+            $('#password')
+              .autocomplete =
+              state.authMode === 'login'
+                ? 'current-password'
+                : 'new-password';
+
+          };
+
+      }
+    );
+
+
+  /* =========================================================
+     LOGOUT
+  ========================================================= */
+
+  $('#authForm')
+    .onsubmit =
+    submitAuth;
+
+
+  $('#logout')
+    .onclick =
+    () => {
+
+      if(state.socket){
+
+        state.socket.disconnect();
+
+      }
+
+      localStorage.removeItem(
+        'rpg_token'
+      );
+
+      state.token =
+        null;
+
+      state.user =
+        null;
+
+      state.room =
+        null;
+
+      location.reload();
+
+    };
+
+
+  /* =========================================================
+     START
+  ========================================================= */
+
+  boot();
+
+</script>
+
+</body>
+</html>
   </script>
 </body>
 </html>
