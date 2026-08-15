@@ -71,9 +71,11 @@ const pool = new Pool({
 function pgSql(sql) {
   let i = 0;
 
-  return sql.replace(/\?/g, () => `$${++i}`);
+  return sql.replace(/\?/g, function () {
+    i += 1;
+    return '$' + i;
+  });
 }
-
 const query = (sql, params = []) =>
   pool.query(pgSql(sql), params);
 
