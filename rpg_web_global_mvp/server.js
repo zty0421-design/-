@@ -22,9 +22,7 @@ if (
 const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
-  throw new Error(
-    'DATABASE_URL is required'
-  );
+  throw new Error('DATABASE_URL is required');
 }
 
 const ADMIN_USERNAME =
@@ -54,50 +52,35 @@ const pool = new Pool({
 function pgSql(sql) {
   let i = 0;
 
-  return sql.replace(/\?/g, function () {
+  return sql.replace(/\?/g, () => {
     i += 1;
     return '$' + i;
   });
 }
 
-async function query(sql, params) {
-  return pool.query(
-    pgSql(sql),
-    params || []
-  );
+async function query(sql, params = []) {
+  return pool.query(pgSql(sql), params);
 }
 
-async function get(sql, params) {
-  const result = await query(
-    sql,
-    params || []
-  );
-
+async function get(sql, params = []) {
+  const result = await query(sql, params);
   return result.rows[0] || null;
 }
 
-async function all(sql, params) {
-  const result = await query(
-    sql,
-    params || []
-  );
-
+async function all(sql, params = []) {
+  const result = await query(sql, params);
   return result.rows;
 }
 
-async function run(sql, params) {
-  const result = await query(
-    sql,
-    params || []
-  );
-
-  const row =
-    result.rows[0] || null;
+async function run(sql, params = []) {
+  const result = await query(sql, params);
+  const row = result.rows[0] || null;
 
   return {
-    id: row && row.id !== undefined
-      ? row.id
-      : null,
+    id:
+      row && row.id !== undefined
+        ? row.id
+        : null,
 
     changes: result.rowCount,
 
@@ -106,127 +89,180 @@ async function run(sql, params) {
 }
 
 /* =========================================================
-   DATABASE
+   DATABASE INITIALIZATION
 ========================================================= */
 
 async function initDb() {
-  const sql = [
-    'CREATE TABLE IF NOT EXISTS users (',
-    '  id BIGSERIAL PRIMARY KEY,',
-    '  username VARCHAR(20) NOT NULL UNIQUE,',
-    '  password_hash TEXT NOT NULL,',
-    '  is_admin BOOLEAN NOT NULL DEFAULT FALSE,',
-    '  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP',
-    ');',
+  const sql = `
+    CREATE TABLE IF NOT EXISTS users (
+      id BIGSERIAL PRIMARY KEY,
+      username VARCHAR(20) NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
 
-    'CREATE TABLE IF NOT EXISTS rooms (',
-    '  id BIGSERIAL PRIMARY KEY,',
-    '  code VARCHAR(6) NOT NULL UNIQUE,',
-    '  name VARCHAR(60) NOT NULL,',
-    '  owner_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,',
-    '  status VARCHAR(20) NOT NULL DEFAULT \'lobby\',',
-    '  round INTEGER NOT NULL DEFAULT 1,',
-    '  current_actor_id BIGINT,',
-    '  saved BOOLEAN NOT NULL DEFAULT FALSE,',
-    '  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,',
-    '  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,',
-    '  closed_at TIMESTAMPTZ',
-    ');',
+    CREATE TABLE IF NOT EXISTS rooms (
+      id BIGSERIAL PRIMARY KEY,
+      code VARCHAR(6) NOT NULL UNIQUE,
+      name VARCHAR(60) NOT NULL,
+      owner_id BIGINT NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+      status VARCHAR(20) NOT NULL DEFAULT 'lobby',
+      round INTEGER NOT NULL DEFAULT 1,
+      current_actor_id BIGINT,
+      saved BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      closed_at TIMESTAMPTZ
+    );
 
-    'CREATE TABLE IF NOT EXISTS room_members (',
-    '  room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,',
-    '  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,',
-    '  role VARCHAR(10) NOT NULL DEFAULT \'player\',',
-    '  display_name VARCHAR(30) NOT NULL,',
-    '  hp INTEGER NOT NULL DEFAULT 100,',
-    '  max_hp INTEGER NOT NULL DEFAULT 100,',
-    '  spirit INTEGER NOT NULL DEFAULT 100,',
-    '  max_spirit INTEGER NOT NULL DEFAULT 100,',
-    '  joined_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,',
-    '  PRIMARY KEY(room_id, user_id)',
-    ');',
+    CREATE TABLE IF NOT EXISTS room_members (
+      room_id BIGINT NOT NULL
+        REFERENCES rooms(id)
+        ON DELETE CASCADE,
 
-    'CREATE TABLE IF NOT EXISTS events (',
-    '  id BIGSERIAL PRIMARY KEY,',
-    '  room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,',
-    '  user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,',
-    '  type VARCHAR(30) NOT NULL,',
-    '  payload JSONB NOT NULL,',
-    '  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP',
-    ');',
+      user_id BIGINT NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
 
-    'CREATE TABLE IF NOT EXISTS character_cards (',
-    '  id BIGSERIAL PRIMARY KEY,',
-    '  user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,',
-    '  name VARCHAR(50) NOT NULL DEFAULT \'未命名角色\',',
-    '  faction VARCHAR(20) NOT NULL DEFAULT \'東國\',',
-    '  tier INTEGER NOT NULL DEFAULT 1,',
-    '  level INTEGER NOT NULL DEFAULT 1,',
-    '  main_class VARCHAR(50) NOT NULL DEFAULT \'未設定\',',
-    '  sub_classes JSONB NOT NULL DEFAULT \'[]\'::jsonb,',
-    '  agility INTEGER NOT NULL DEFAULT 0,',
-    '  strength INTEGER NOT NULL DEFAULT 0,',
-    '  constitution INTEGER NOT NULL DEFAULT 0,',
-    '  spirit INTEGER NOT NULL DEFAULT 0,',
-    '  great_way INTEGER NOT NULL DEFAULT 0,',
-    '  great_way_name VARCHAR(100),',
-    '  luck INTEGER NOT NULL DEFAULT 10,',
-    '  attribute_points INTEGER NOT NULL DEFAULT 50,',
-    '  experience BIGINT NOT NULL DEFAULT 0,',
-    '  skill_points INTEGER NOT NULL DEFAULT 0,',
-    '  skills JSONB NOT NULL DEFAULT \'[]\'::jsonb,',
-    '  equipment JSONB NOT NULL DEFAULT \'[]\'::jsonb,',
-    '  weapons JSONB NOT NULL DEFAULT \'[]\'::jsonb,',
-    '  affinity_light INTEGER NOT NULL DEFAULT 0,',
-    '  affinity_dark INTEGER NOT NULL DEFAULT 0,',
-    '  affinity_metal INTEGER NOT NULL DEFAULT 0,',
-    '  affinity_wood INTEGER NOT NULL DEFAULT 0,',
-    '  affinity_water INTEGER NOT NULL DEFAULT 0,',
-    '  affinity_fire INTEGER NOT NULL DEFAULT 0,',
-    '  affinity_earth INTEGER NOT NULL DEFAULT 0,',
-    '  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,',
-    '  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP',
-    ');',
+      role VARCHAR(10) NOT NULL DEFAULT 'player',
+      display_name VARCHAR(30) NOT NULL,
 
-    'CREATE TABLE IF NOT EXISTS character_room_bindings (',
-    '  room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,',
-    '  character_id BIGINT NOT NULL REFERENCES character_cards(id) ON DELETE CASCADE,',
-    '  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,',
-    '  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,',
-    '  PRIMARY KEY(room_id, user_id),',
-    '  UNIQUE(room_id, character_id)',
-    ');',
+      hp INTEGER NOT NULL DEFAULT 100,
+      max_hp INTEGER NOT NULL DEFAULT 100,
 
-    'CREATE INDEX IF NOT EXISTS idx_room_members_room',
-    'ON room_members(room_id);',
+      spirit INTEGER NOT NULL DEFAULT 100,
+      max_spirit INTEGER NOT NULL DEFAULT 100,
 
-    'CREATE INDEX IF NOT EXISTS idx_events_room_id_id',
-    'ON events(room_id, id);',
+      joined_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    'CREATE INDEX IF NOT EXISTS idx_character_room_bindings_room',
-    'ON character_room_bindings(room_id);',
+      PRIMARY KEY(room_id, user_id)
+    );
 
-    'CREATE INDEX IF NOT EXISTS idx_character_room_bindings_character',
-    'ON character_room_bindings(character_id);'
-  ].join('\n');
+    CREATE TABLE IF NOT EXISTS events (
+      id BIGSERIAL PRIMARY KEY,
+
+      room_id BIGINT NOT NULL
+        REFERENCES rooms(id)
+        ON DELETE CASCADE,
+
+      user_id BIGINT
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+
+      type VARCHAR(30) NOT NULL,
+      payload JSONB NOT NULL,
+
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS character_cards (
+      id BIGSERIAL PRIMARY KEY,
+
+      user_id BIGINT NOT NULL UNIQUE
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+      name VARCHAR(50) NOT NULL DEFAULT '未命名角色',
+
+      faction VARCHAR(20) NOT NULL DEFAULT '東國',
+
+      tier INTEGER NOT NULL DEFAULT 1,
+      level INTEGER NOT NULL DEFAULT 1,
+
+      main_class VARCHAR(50) NOT NULL DEFAULT '未設定',
+
+      sub_classes JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+      agility INTEGER NOT NULL DEFAULT 0,
+      strength INTEGER NOT NULL DEFAULT 0,
+      constitution INTEGER NOT NULL DEFAULT 0,
+      spirit INTEGER NOT NULL DEFAULT 0,
+
+      great_way INTEGER NOT NULL DEFAULT 0,
+      great_way_name VARCHAR(100),
+
+      luck INTEGER NOT NULL DEFAULT 10,
+
+      attribute_points INTEGER NOT NULL DEFAULT 50,
+
+      experience BIGINT NOT NULL DEFAULT 0,
+      skill_points INTEGER NOT NULL DEFAULT 0,
+
+      skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+      equipment JSONB NOT NULL DEFAULT '[]'::jsonb,
+      weapons JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+      affinity_light INTEGER NOT NULL DEFAULT 0,
+      affinity_dark INTEGER NOT NULL DEFAULT 0,
+      affinity_metal INTEGER NOT NULL DEFAULT 0,
+      affinity_wood INTEGER NOT NULL DEFAULT 0,
+      affinity_water INTEGER NOT NULL DEFAULT 0,
+      affinity_fire INTEGER NOT NULL DEFAULT 0,
+      affinity_earth INTEGER NOT NULL DEFAULT 0,
+
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS character_room_bindings (
+      room_id BIGINT NOT NULL
+        REFERENCES rooms(id)
+        ON DELETE CASCADE,
+
+      character_id BIGINT NOT NULL
+        REFERENCES character_cards(id)
+        ON DELETE CASCADE,
+
+      user_id BIGINT NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+      PRIMARY KEY(room_id, user_id),
+
+      UNIQUE(room_id, character_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_room_members_room
+      ON room_members(room_id);
+
+    CREATE INDEX IF NOT EXISTS idx_events_room_id_id
+      ON events(room_id, id);
+
+    CREATE INDEX IF NOT EXISTS idx_character_room_bindings_room
+      ON character_room_bindings(room_id);
+
+    CREATE INDEX IF NOT EXISTS idx_character_room_bindings_character
+      ON character_room_bindings(character_id);
+  `;
 
   await pool.query(sql);
 
-  /* 舊資料庫升級 */
+  /* =======================================================
+     舊資料庫升級
+  ======================================================= */
 
-  await pool.query([
-    'ALTER TABLE users',
-    'ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;',
+  await pool.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS is_admin
+      BOOLEAN NOT NULL DEFAULT FALSE;
 
-    'ALTER TABLE rooms',
-    'ADD COLUMN IF NOT EXISTS saved BOOLEAN NOT NULL DEFAULT FALSE;',
+    ALTER TABLE rooms
+      ADD COLUMN IF NOT EXISTS saved
+      BOOLEAN NOT NULL DEFAULT FALSE;
 
-    'ALTER TABLE rooms',
-    'ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;',
+    ALTER TABLE rooms
+      ADD COLUMN IF NOT EXISTS updated_at
+      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
-    'ALTER TABLE rooms',
-    'ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;'
-  ].join('\n'));
+    ALTER TABLE rooms
+      ADD COLUMN IF NOT EXISTS closed_at
+      TIMESTAMPTZ;
+  `);
 
   await ensureAdmin();
 }
@@ -238,7 +274,8 @@ async function initDb() {
 async function ensureAdmin() {
   if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
     console.log(
-      'ADMIN_USERNAME / ADMIN_PASSWORD not set. Global DM account will not be created automatically.'
+      'ADMIN_USERNAME / ADMIN_PASSWORD not set. ' +
+      'Global DM account will not be created automatically.'
     );
 
     return;
@@ -251,24 +288,28 @@ async function ensureAdmin() {
   }
 
   const existing = await get(
-    'SELECT id FROM users WHERE username = ?',
+    `
+      SELECT id
+      FROM users
+      WHERE username = ?
+    `,
     [ADMIN_USERNAME]
   );
 
-  const hash =
-    await bcrypt.hash(
-      ADMIN_PASSWORD,
-      12
-    );
+  const hash = await bcrypt.hash(
+    ADMIN_PASSWORD,
+    12
+  );
 
   if (existing) {
     await run(
-      [
-        'UPDATE users',
-        'SET password_hash = ?,',
-        '    is_admin = TRUE',
-        'WHERE id = ?'
-      ].join('\n'),
+      `
+        UPDATE users
+        SET
+          password_hash = ?,
+          is_admin = TRUE
+        WHERE id = ?
+      `,
       [
         hash,
         existing.id
@@ -284,15 +325,19 @@ async function ensureAdmin() {
   }
 
   await run(
-    [
-      'INSERT INTO users(',
-      '  username,',
-      '  password_hash,',
-      '  is_admin',
-      ')',
-      'VALUES(?, ?, TRUE)',
-      'RETURNING id'
-    ].join('\n'),
+    `
+      INSERT INTO users(
+        username,
+        password_hash,
+        is_admin
+      )
+      VALUES(
+        ?,
+        ?,
+        TRUE
+      )
+      RETURNING id
+    `,
     [
       ADMIN_USERNAME,
       hash
@@ -306,7 +351,7 @@ async function ensureAdmin() {
 }
 
 /* =========================================================
-   AUTH
+   AUTHENTICATION
 ========================================================= */
 
 function signToken(user) {
@@ -339,11 +384,10 @@ function auth(req, res, next) {
   }
 
   try {
-    req.user =
-      jwt.verify(
-        token,
-        JWT_SECRET
-      );
+    req.user = jwt.verify(
+      token,
+      JWT_SECRET
+    );
 
     next();
   } catch {
@@ -355,17 +399,22 @@ function auth(req, res, next) {
 
 async function requireAdminUser(userId) {
   const user = await get(
-    [
-      'SELECT id, username, is_admin',
-      'FROM users',
-      'WHERE id = ?'
-    ].join('\n'),
+    `
+      SELECT
+        id,
+        username,
+        is_admin
+      FROM users
+      WHERE id = ?
+    `,
     [userId]
   );
 
   if (!user || !user.is_admin) {
     throw Object.assign(
-      new Error('只有全站管理員 DM 可以執行此操作'),
+      new Error(
+        '只有全站管理員 DM 可以執行此操作'
+      ),
       {
         status: 403
       }
@@ -395,11 +444,10 @@ async function adminAuth(req, res, next) {
 
 function socketAuth(socket, next) {
   try {
-    socket.user =
-      jwt.verify(
-        socket.handshake.auth?.token || '',
-        JWT_SECRET
-      );
+    socket.user = jwt.verify(
+      socket.handshake.auth?.token || '',
+      JWT_SECRET
+    );
 
     next();
   } catch {
@@ -438,7 +486,11 @@ async function uniqueCode() {
     code = generateCode();
   } while (
     await get(
-      'SELECT id FROM rooms WHERE code = ?',
+      `
+        SELECT id
+        FROM rooms
+        WHERE code = ?
+      `,
       [code]
     )
   );
@@ -451,6 +503,10 @@ async function uniqueCode() {
 ========================================================= */
 
 function calculateCharacter(character) {
+  if (!character) {
+    return null;
+  }
+
   const constitution =
     Number(
       character.constitution
@@ -487,6 +543,22 @@ function calculateCharacter(character) {
   };
 }
 
+function safeJson(value, fallback) {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
 function parseCharacter(character) {
   if (!character) {
     return null;
@@ -496,35 +568,39 @@ function parseCharacter(character) {
     ...character,
 
     sub_classes:
-      typeof character.sub_classes === 'string'
-        ? JSON.parse(character.sub_classes)
-        : character.sub_classes,
+      safeJson(
+        character.sub_classes,
+        []
+      ),
 
     skills:
-      typeof character.skills === 'string'
-        ? JSON.parse(character.skills)
-        : character.skills,
+      safeJson(
+        character.skills,
+        []
+      ),
 
     equipment:
-      typeof character.equipment === 'string'
-        ? JSON.parse(character.equipment)
-        : character.equipment,
+      safeJson(
+        character.equipment,
+        []
+      ),
 
     weapons:
-      typeof character.weapons === 'string'
-        ? JSON.parse(character.weapons)
-        : character.weapons
+      safeJson(
+        character.weapons,
+        []
+      )
   });
 }
 
 async function getCharacterByUser(userId) {
   const character =
     await get(
-      [
-        'SELECT *',
-        'FROM character_cards',
-        'WHERE user_id = ?'
-      ].join('\n'),
+      `
+        SELECT *
+        FROM character_cards
+        WHERE user_id = ?
+      `,
       [userId]
     );
 
@@ -554,7 +630,7 @@ async function requireCharacter(userId) {
 }
 
 /* =========================================================
-   ROOM PERMISSION
+   ROOM PERMISSIONS
 ========================================================= */
 
 async function requireRoomMember(
@@ -563,12 +639,12 @@ async function requireRoomMember(
 ) {
   const row =
     await get(
-      [
-        'SELECT *',
-        'FROM room_members',
-        'WHERE room_id = ?',
-        'AND user_id = ?'
-      ].join('\n'),
+      `
+        SELECT *
+        FROM room_members
+        WHERE room_id = ?
+          AND user_id = ?
+      `,
       [
         roomId,
         userId
@@ -595,12 +671,12 @@ async function requireOwner(
 ) {
   const row =
     await get(
-      [
-        'SELECT *',
-        'FROM rooms',
-        'WHERE id = ?',
-        'AND owner_id = ?'
-      ].join('\n'),
+      `
+        SELECT *
+        FROM rooms
+        WHERE id = ?
+          AND owner_id = ?
+      `,
       [
         roomId,
         userId
@@ -621,28 +697,30 @@ async function requireOwner(
   return row;
 }
 
-/*
- * 全站 DM 可以查看／管理任何房間。
- */
-
 async function requireRoomOwnerOrAdmin(
   userId,
   roomId
 ) {
   const user =
     await get(
-      [
-        'SELECT id, is_admin',
-        'FROM users',
-        'WHERE id = ?'
-      ].join('\n'),
+      `
+        SELECT
+          id,
+          is_admin
+        FROM users
+        WHERE id = ?
+      `,
       [userId]
     );
 
   if (user && user.is_admin) {
     const room =
       await get(
-        'SELECT * FROM rooms WHERE id = ?',
+        `
+          SELECT *
+          FROM rooms
+          WHERE id = ?
+        `,
         [roomId]
       );
 
@@ -675,15 +753,20 @@ async function addEvent(
   payload
 ) {
   await run(
-    [
-      'INSERT INTO events(',
-      '  room_id,',
-      '  user_id,',
-      '  type,',
-      '  payload',
-      ')',
-      'VALUES(?, ?, ?, ?::jsonb)'
-    ].join('\n'),
+    `
+      INSERT INTO events(
+        room_id,
+        user_id,
+        type,
+        payload
+      )
+      VALUES(
+        ?,
+        ?,
+        ?,
+        ?::jsonb
+      )
+    `,
     [
       roomId,
       userId,
@@ -695,11 +778,11 @@ async function addEvent(
   );
 
   await run(
-    [
-      'UPDATE rooms',
-      'SET updated_at = CURRENT_TIMESTAMP',
-      'WHERE id = ?'
-    ].join('\n'),
+    `
+      UPDATE rooms
+      SET updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `,
     [roomId]
   );
 }
@@ -711,22 +794,22 @@ async function addEvent(
 async function roomSnapshot(roomId) {
   const room =
     await get(
-      [
-        'SELECT',
-        '  id,',
-        '  code,',
-        '  name,',
-        '  owner_id,',
-        '  status,',
-        '  round,',
-        '  current_actor_id,',
-        '  saved,',
-        '  created_at,',
-        '  updated_at,',
-        '  closed_at',
-        'FROM rooms',
-        'WHERE id = ?'
-      ].join('\n'),
+      `
+        SELECT
+          id,
+          code,
+          name,
+          owner_id,
+          status,
+          round,
+          current_actor_id,
+          saved,
+          created_at,
+          updated_at,
+          closed_at
+        FROM rooms
+        WHERE id = ?
+      `,
       [roomId]
     );
 
@@ -736,47 +819,59 @@ async function roomSnapshot(roomId) {
 
   const members =
     await all(
-      [
-        'SELECT',
-        '  rm.user_id AS id,',
-        '  rm.display_name,',
-        '  rm.role,',
-        '  rm.hp,',
-        '  rm.max_hp,',
-        '  rm.spirit,',
-        '  rm.max_spirit,',
-        '  rm.joined_at,',
-        '  u.username,',
-        '  u.is_admin,',
-        '  crb.character_id',
-        'FROM room_members rm',
-        'JOIN users u',
-        '  ON u.id = rm.user_id',
-        'LEFT JOIN character_room_bindings crb',
-        '  ON crb.room_id = rm.room_id',
-        '  AND crb.user_id = rm.user_id',
-        'WHERE rm.room_id = ?',
-        'ORDER BY rm.joined_at ASC'
-      ].join('\n'),
+      `
+        SELECT
+          rm.user_id AS id,
+          rm.display_name,
+          rm.role,
+          rm.hp,
+          rm.max_hp,
+          rm.spirit,
+          rm.max_spirit,
+          rm.joined_at,
+
+          u.username,
+          u.is_admin,
+
+          crb.character_id
+
+        FROM room_members rm
+
+        JOIN users u
+          ON u.id = rm.user_id
+
+        LEFT JOIN character_room_bindings crb
+          ON crb.room_id = rm.room_id
+         AND crb.user_id = rm.user_id
+
+        WHERE rm.room_id = ?
+
+        ORDER BY rm.joined_at ASC
+      `,
       [roomId]
     );
 
   const events =
     await all(
-      [
-        'SELECT',
-        '  e.id,',
-        '  e.type,',
-        '  e.payload,',
-        '  e.created_at,',
-        '  u.username',
-        'FROM events e',
-        'LEFT JOIN users u',
-        '  ON u.id = e.user_id',
-        'WHERE e.room_id = ?',
-        'ORDER BY e.id DESC',
-        'LIMIT 100'
-      ].join('\n'),
+      `
+        SELECT
+          e.id,
+          e.type,
+          e.payload,
+          e.created_at,
+          u.username
+
+        FROM events e
+
+        LEFT JOIN users u
+          ON u.id = e.user_id
+
+        WHERE e.room_id = ?
+
+        ORDER BY e.id DESC
+
+        LIMIT 100
+      `,
       [roomId]
     );
 
@@ -788,16 +883,15 @@ async function roomSnapshot(roomId) {
     events:
       events
         .reverse()
-        .map(function (e) {
-          return {
-            ...e,
+        .map((e) => ({
+          ...e,
 
-            payload:
-              typeof e.payload === 'string'
-                ? JSON.parse(e.payload)
-                : e.payload
-          };
-        })
+          payload:
+            safeJson(
+              e.payload,
+              {}
+            )
+        }))
   };
 }
 
@@ -828,7 +922,7 @@ app.use(
 
 app.get(
   '/api/health',
-  async function (req, res) {
+  async (req, res) => {
     try {
       await pool.query(
         'SELECT 1'
@@ -869,13 +963,12 @@ app.use(
 
 app.post(
   '/api/auth/register',
-  async function (req, res) {
+  async (req, res) => {
     try {
       const username =
         String(
           req.body.username || ''
-        )
-          .trim();
+        ).trim();
 
       const password =
         String(
@@ -908,14 +1001,17 @@ app.post(
 
       const result =
         await run(
-          [
-            'INSERT INTO users(',
-            '  username,',
-            '  password_hash',
-            ')',
-            'VALUES(?, ?)',
-            'RETURNING id'
-          ].join('\n'),
+          `
+            INSERT INTO users(
+              username,
+              password_hash
+            )
+            VALUES(
+              ?,
+              ?
+            )
+            RETURNING id
+          `,
           [
             username,
             hash
@@ -955,7 +1051,7 @@ app.post(
 
 app.post(
   '/api/auth/login',
-  async function (req, res) {
+  async (req, res) => {
     try {
       const username =
         String(
@@ -969,15 +1065,17 @@ app.post(
 
       const user =
         await get(
-          [
-            'SELECT',
-            '  id,',
-            '  username,',
-            '  password_hash,',
-            '  is_admin',
-            'FROM users',
-            'WHERE username = ?'
-          ].join('\n'),
+          `
+            SELECT
+              id,
+              username,
+              password_hash,
+              is_admin
+
+            FROM users
+
+            WHERE username = ?
+          `,
           [username]
         );
 
@@ -998,7 +1096,9 @@ app.post(
         id: user.id,
         username: user.username,
         is_admin:
-          Boolean(user.is_admin)
+          Boolean(
+            user.is_admin
+          )
       };
 
       res.json({
@@ -1026,18 +1126,20 @@ app.post(
 app.get(
   '/api/me',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const user =
         await get(
-          [
-            'SELECT',
-            '  id,',
-            '  username,',
-            '  is_admin',
-            'FROM users',
-            'WHERE id = ?'
-          ].join('\n'),
+          `
+            SELECT
+              id,
+              username,
+              is_admin
+
+            FROM users
+
+            WHERE id = ?
+          `,
           [req.user.id]
         );
 
@@ -1075,7 +1177,7 @@ app.get(
   '/api/admin/me',
   auth,
   adminAuth,
-  async function (req, res) {
+  async (req, res) => {
     const user =
       await requireAdminUser(
         req.user.id
@@ -1099,23 +1201,27 @@ app.get(
   '/api/admin/users',
   auth,
   adminAuth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const users =
         await all(
-          [
-            'SELECT',
-            '  u.id,',
-            '  u.username,',
-            '  u.is_admin,',
-            '  u.created_at,',
-            '  c.id AS character_id,',
-            '  c.name AS character_name',
-            'FROM users u',
-            'LEFT JOIN character_cards c',
-            '  ON c.user_id = u.id',
-            'ORDER BY u.id ASC'
-          ].join('\n')
+          `
+            SELECT
+              u.id,
+              u.username,
+              u.is_admin,
+              u.created_at,
+
+              c.id AS character_id,
+              c.name AS character_name
+
+            FROM users u
+
+            LEFT JOIN character_cards c
+              ON c.user_id = u.id
+
+            ORDER BY u.id ASC
+          `
         );
 
       res.json({
@@ -1131,39 +1237,103 @@ app.get(
 );
 
 /* =========================================================
-   ADMIN - ROOMS
+   ADMIN - DELETE USER
 ========================================================= */
 
-app.get(
-  '/api/admin/rooms',
+app.delete(
+  '/api/admin/users/:id',
   auth,
   adminAuth,
-  async function (req, res) {
+  async (req, res) => {
     try {
-      const rooms =
-        await all(
-          [
-            'SELECT',
-            '  r.*,',
-            '  u.username AS owner_username,',
-            '  COUNT(rm.user_id)::INTEGER AS member_count',
-            'FROM rooms r',
-            'JOIN users u',
-            '  ON u.id = r.owner_id',
-            'LEFT JOIN room_members rm',
-            '  ON rm.room_id = r.id',
-            'GROUP BY r.id, u.username',
-            'ORDER BY r.updated_at DESC'
-          ].join('\n')
+      const targetId =
+        Number(
+          req.params.id
         );
 
+      if (
+        !Number.isInteger(
+          targetId
+        ) ||
+        targetId <= 0
+      ) {
+        return res.status(400).json({
+          error:
+            '無效的使用者 ID'
+        });
+      }
+
+      if (
+        targetId ===
+        Number(req.user.id)
+      ) {
+        return res.status(400).json({
+          error:
+            '不能刪除目前登入中的全站 DM 帳號'
+        });
+      }
+
+      const target =
+        await get(
+          `
+            SELECT
+              id,
+              username,
+              is_admin
+
+            FROM users
+
+            WHERE id = ?
+          `,
+          [targetId]
+        );
+
+      if (!target) {
+        return res.status(404).json({
+          error:
+            '找不到使用者'
+        });
+      }
+
+      /*
+       * 為避免誤刪其他管理員帳號，
+       * 全站 DM 只能刪除一般玩家。
+       */
+      if (target.is_admin) {
+        return res.status(403).json({
+          error:
+            '不能刪除其他全站管理員'
+        });
+      }
+
+      await run(
+        `
+          DELETE FROM users
+          WHERE id = ?
+        `,
+        [targetId]
+      );
+
       res.json({
-        rooms
+        ok: true,
+
+        deleted: {
+          id: target.id,
+          username: target.username
+        },
+
+        message:
+          '使用者帳號、角色卡及相關資料已刪除'
       });
-    } catch {
+    } catch (e) {
+      console.error(
+        'Delete user failed:',
+        e
+      );
+
       res.status(500).json({
         error:
-          '讀取全站房間失敗'
+          '刪除帳號失敗'
       });
     }
   }
@@ -1177,19 +1347,22 @@ app.get(
   '/api/admin/characters',
   auth,
   adminAuth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const rows =
         await all(
-          [
-            'SELECT',
-            '  c.*,',
-            '  u.username',
-            'FROM character_cards c',
-            'JOIN users u',
-            '  ON u.id = c.user_id',
-            'ORDER BY c.id ASC'
-          ].join('\n')
+          `
+            SELECT
+              c.*,
+              u.username
+
+            FROM character_cards c
+
+            JOIN users u
+              ON u.id = c.user_id
+
+            ORDER BY c.id ASC
+          `
         );
 
       res.json({
@@ -1215,7 +1388,7 @@ app.get(
   '/api/admin/rooms/:id',
   auth,
   adminAuth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const snapshot =
         await roomSnapshot(
@@ -1249,22 +1422,27 @@ app.get(
   '/api/admin/rooms/:id/characters',
   auth,
   adminAuth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const characters =
         await all(
-          [
-            'SELECT',
-            '  c.*,',
-            '  u.username',
-            'FROM character_cards c',
-            'JOIN character_room_bindings crb',
-            '  ON crb.character_id = c.id',
-            'JOIN users u',
-            '  ON u.id = c.user_id',
-            'WHERE crb.room_id = ?',
-            'ORDER BY c.id ASC'
-          ].join('\n'),
+          `
+            SELECT
+              c.*,
+              u.username
+
+            FROM character_cards c
+
+            JOIN character_room_bindings crb
+              ON crb.character_id = c.id
+
+            JOIN users u
+              ON u.id = c.user_id
+
+            WHERE crb.room_id = ?
+
+            ORDER BY c.id ASC
+          `,
           [req.params.id]
         );
 
@@ -1291,11 +1469,15 @@ app.post(
   '/api/admin/rooms/:id/close',
   auth,
   adminAuth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const room =
         await get(
-          'SELECT * FROM rooms WHERE id = ?',
+          `
+            SELECT *
+            FROM rooms
+            WHERE id = ?
+          `,
           [req.params.id]
         );
 
@@ -1307,15 +1489,16 @@ app.post(
       }
 
       await run(
-        [
-          'UPDATE rooms',
-          'SET',
-          '  saved = TRUE,',
-          '  status = \'closed\',',
-          '  closed_at = CURRENT_TIMESTAMP,',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE id = ?'
-        ].join('\n'),
+        `
+          UPDATE rooms
+          SET
+            saved = TRUE,
+            status = 'closed',
+            closed_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+
+          WHERE id = ?
+        `,
         [req.params.id]
       );
 
@@ -1329,21 +1512,21 @@ app.post(
         }
       );
 
+      const snapshot =
+        await roomSnapshot(
+          req.params.id
+        );
+
       io.to(
         'room:' + req.params.id
       ).emit(
         'room:snapshot',
-        await roomSnapshot(
-          req.params.id
-        )
+        snapshot
       );
 
       res.json({
         ok: true,
-        room:
-          await roomSnapshot(
-            req.params.id
-          )
+        room: snapshot
       });
     } catch (e) {
       res.status(
@@ -1365,11 +1548,15 @@ app.post(
   '/api/admin/rooms/:id/reopen',
   auth,
   adminAuth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const room =
         await get(
-          'SELECT * FROM rooms WHERE id = ?',
+          `
+            SELECT *
+            FROM rooms
+            WHERE id = ?
+          `,
           [req.params.id]
         );
 
@@ -1381,15 +1568,16 @@ app.post(
       }
 
       await run(
-        [
-          'UPDATE rooms',
-          'SET',
-          '  status = \'lobby\',',
-          '  saved = FALSE,',
-          '  closed_at = NULL,',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE id = ?'
-        ].join('\n'),
+        `
+          UPDATE rooms
+          SET
+            status = 'lobby',
+            saved = FALSE,
+            closed_at = NULL,
+            updated_at = CURRENT_TIMESTAMP
+
+          WHERE id = ?
+        `,
         [req.params.id]
       );
 
@@ -1403,21 +1591,21 @@ app.post(
         }
       );
 
+      const snapshot =
+        await roomSnapshot(
+          req.params.id
+        );
+
       io.to(
         'room:' + req.params.id
       ).emit(
         'room:snapshot',
-        await roomSnapshot(
-          req.params.id
-        )
+        snapshot
       );
 
       res.json({
         ok: true,
-        room:
-          await roomSnapshot(
-            req.params.id
-          )
+        room: snapshot
       });
     } catch (e) {
       res.status(
@@ -1438,7 +1626,7 @@ app.post(
 app.get(
   '/api/character',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       res.json({
         character:
@@ -1462,15 +1650,15 @@ app.get(
 app.post(
   '/api/character',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const exists =
         await get(
-          [
-            'SELECT id',
-            'FROM character_cards',
-            'WHERE user_id = ?'
-          ].join('\n'),
+          `
+            SELECT id
+            FROM character_cards
+            WHERE user_id = ?
+          `,
           [req.user.id]
         );
 
@@ -1538,67 +1726,84 @@ app.post(
           ) || 10
         );
 
-      const result =
-        await run(
-          [
-            'INSERT INTO character_cards(',
-            '  user_id,',
-            '  name,',
-            '  faction,',
-            '  tier,',
-            '  level,',
-            '  main_class,',
-            '  sub_classes,',
-            '  luck,',
-            '  attribute_points,',
-            '  skills,',
-            '  equipment,',
-            '  weapons,',
-            '  affinity_light,',
-            '  affinity_dark,',
-            '  affinity_metal,',
-            '  affinity_wood,',
-            '  affinity_water,',
-            '  affinity_fire,',
-            '  affinity_earth',
-            ')',
-            'VALUES(',
-            '  ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?,',
-            '  ?::jsonb, ?::jsonb, ?::jsonb,',
-            '  ?, ?, ?, ?, ?, ?, ?',
-            ')',
-            'RETURNING id'
-          ].join('\n'),
-          [
-            req.user.id,
+      await run(
+        `
+          INSERT INTO character_cards(
+            user_id,
             name,
             faction,
-            1,
-            1,
-            mainClass,
-            JSON.stringify(
-              subClasses
-            ),
+            tier,
+            level,
+            main_class,
+            sub_classes,
             luck,
-            50,
-            JSON.stringify(
-              skills
-            ),
-            JSON.stringify(
-              equipment
-            ),
-            JSON.stringify(
-              weapons
-            ),
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ]
-        );
+            attribute_points,
+            skills,
+            equipment,
+            weapons,
+            affinity_light,
+            affinity_dark,
+            affinity_metal,
+            affinity_wood,
+            affinity_water,
+            affinity_fire,
+            affinity_earth
+          )
+
+          VALUES(
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?::jsonb,
+            ?,
+            ?,
+            ?::jsonb,
+            ?::jsonb,
+            ?::jsonb,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?,
+            ?
+          )
+
+          RETURNING id
+        `,
+        [
+          req.user.id,
+          name,
+          faction,
+          1,
+          1,
+          mainClass,
+          JSON.stringify(
+            subClasses
+          ),
+          luck,
+          50,
+          JSON.stringify(
+            skills
+          ),
+          JSON.stringify(
+            equipment
+          ),
+          JSON.stringify(
+            weapons
+          ),
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      );
 
       res.json({
         character:
@@ -1628,7 +1833,7 @@ app.post(
 app.patch(
   '/api/character',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       await requireCharacter(
         req.user.id
@@ -1665,7 +1870,10 @@ app.patch(
       const updates = [];
       const values = [];
 
-      for (const field of numericFields) {
+      for (
+        const field
+        of numericFields
+      ) {
         if (
           req.body[field] !==
           undefined
@@ -1685,7 +1893,10 @@ app.patch(
         }
       }
 
-      for (const field of textFields) {
+      for (
+        const field
+        of textFields
+      ) {
         if (
           req.body[field] !==
           undefined
@@ -1697,7 +1908,10 @@ app.patch(
           values.push(
             String(
               req.body[field]
-            ).slice(0, 100)
+            ).slice(
+              0,
+              100
+            )
           );
         }
       }
@@ -1709,7 +1923,10 @@ app.patch(
         'weapons'
       ];
 
-      for (const field of jsonFields) {
+      for (
+        const field
+        of jsonFields
+      ) {
         if (
           req.body[field] !==
           undefined
@@ -1757,12 +1974,12 @@ app.patch(
       );
 
       await run(
-        [
-          'UPDATE character_cards',
-          'SET ' +
-            updates.join(', '),
-          'WHERE user_id = ?'
-        ].join('\n'),
+        `
+          UPDATE character_cards
+          SET ${updates.join(', ')}
+
+          WHERE user_id = ?
+        `,
         values
       );
 
@@ -1791,7 +2008,7 @@ app.patch(
 app.post(
   '/api/character/skill',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const character =
         await requireCharacter(
@@ -1858,13 +2075,15 @@ app.post(
       );
 
       await run(
-        [
-          'UPDATE character_cards',
-          'SET',
-          '  skills = ?::jsonb,',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE user_id = ?'
-        ].join('\n'),
+        `
+          UPDATE character_cards
+
+          SET
+            skills = ?::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+
+          WHERE user_id = ?
+        `,
         [
           JSON.stringify(
             skills
@@ -1893,12 +2112,13 @@ app.post(
 
 /* =========================================================
    CREATE ROOM
+   DM 不再需要角色卡
 ========================================================= */
 
 app.post(
   '/api/rooms',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const name =
         String(
@@ -1909,27 +2129,30 @@ app.post(
           .slice(0, 60) ||
           '未命名跑團';
 
-      const character =
-        await requireCharacter(
-          req.user.id
-        );
-
       const code =
         await uniqueCode();
 
       const result =
         await run(
-          [
-            'INSERT INTO rooms(',
-            '  code,',
-            '  name,',
-            '  owner_id,',
-            '  status,',
-            '  saved',
-            ')',
-            'VALUES(?, ?, ?, \'lobby\', FALSE)',
-            'RETURNING id'
-          ].join('\n'),
+          `
+            INSERT INTO rooms(
+              code,
+              name,
+              owner_id,
+              status,
+              saved
+            )
+
+            VALUES(
+              ?,
+              ?,
+              ?,
+              'lobby',
+              FALSE
+            )
+
+            RETURNING id
+          `,
           [
             code,
             name,
@@ -1937,46 +2160,87 @@ app.post(
           ]
         );
 
+      /*
+       * DM 建房時不要求角色卡。
+       * 如果 DM 有角色卡，才建立角色綁定。
+       */
+
+      const character =
+        await getCharacterByUser(
+          req.user.id
+        );
+
       await run(
-        [
-          'INSERT INTO room_members(',
-          '  room_id,',
-          '  user_id,',
-          '  role,',
-          '  display_name,',
-          '  hp,',
-          '  max_hp,',
-          '  spirit,',
-          '  max_spirit',
-          ')',
-          'VALUES(?, ?, \'gm\', ?, ?, ?, ?, ?)'
-        ].join('\n'),
+        `
+          INSERT INTO room_members(
+            room_id,
+            user_id,
+            role,
+            display_name,
+            hp,
+            max_hp,
+            spirit,
+            max_spirit
+          )
+
+          VALUES(
+            ?,
+            ?,
+            'gm',
+            ?,
+            ?,
+            ?,
+            ?,
+            ?
+          )
+        `,
         [
           result.id,
           req.user.id,
           req.user.username,
-          character.max_hp,
-          character.max_hp,
-          character.spirit,
-          character.spirit
+
+          character
+            ? character.max_hp
+            : 100,
+
+          character
+            ? character.max_hp
+            : 100,
+
+          character
+            ? character.spirit
+            : 100,
+
+          character
+            ? character.spirit
+            : 100
         ]
       );
 
-      await run(
-        [
-          'INSERT INTO character_room_bindings(',
-          '  room_id,',
-          '  character_id,',
-          '  user_id',
-          ')',
-          'VALUES(?, ?, ?)'
-        ].join('\n'),
-        [
-          result.id,
-          character.id,
-          req.user.id
-        ]
-      );
+      if (character) {
+        await run(
+          `
+            INSERT INTO character_room_bindings(
+              room_id,
+              character_id,
+              user_id
+            )
+
+            VALUES(
+              ?,
+              ?,
+              ?
+            )
+
+            ON CONFLICT DO NOTHING
+          `,
+          [
+            result.id,
+            character.id,
+            req.user.id
+          ]
+        );
+      }
 
       await addEvent(
         result.id,
@@ -2015,7 +2279,7 @@ app.post(
 app.post(
   '/api/rooms/join',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const code =
         String(
@@ -2026,7 +2290,11 @@ app.post(
 
       const room =
         await get(
-          'SELECT * FROM rooms WHERE code = ?',
+          `
+            SELECT *
+            FROM rooms
+            WHERE code = ?
+          `,
           [code]
         );
 
@@ -2046,19 +2314,24 @@ app.post(
         });
       }
 
+      /*
+       * 玩家加入房間仍然可以沒有角色卡。
+       * 如果有角色卡，則自動綁定。
+       */
+
       const character =
-        await requireCharacter(
+        await getCharacterByUser(
           req.user.id
         );
 
       const existing =
         await get(
-          [
-            'SELECT *',
-            'FROM room_members',
-            'WHERE room_id = ?',
-            'AND user_id = ?'
-          ].join('\n'),
+          `
+            SELECT *
+            FROM room_members
+            WHERE room_id = ?
+              AND user_id = ?
+          `,
           [
             room.id,
             req.user.id
@@ -2067,46 +2340,79 @@ app.post(
 
       if (!existing) {
         await run(
-          [
-            'INSERT INTO room_members(',
-            '  room_id,',
-            '  user_id,',
-            '  role,',
-            '  display_name,',
-            '  hp,',
-            '  max_hp,',
-            '  spirit,',
-            '  max_spirit',
-            ')',
-            'VALUES(?, ?, \'player\', ?, ?, ?, ?, ?)'
-          ].join('\n'),
+          `
+            INSERT INTO room_members(
+              room_id,
+              user_id,
+              role,
+              display_name,
+              hp,
+              max_hp,
+              spirit,
+              max_spirit
+            )
+
+            VALUES(
+              ?,
+              ?,
+              'player',
+              ?,
+              ?,
+              ?,
+              ?,
+              ?
+            )
+          `,
           [
             room.id,
             req.user.id,
-            character.name,
-            character.max_hp,
-            character.max_hp,
-            character.spirit,
-            character.spirit
+
+            character
+              ? character.name
+              : req.user.username,
+
+            character
+              ? character.max_hp
+              : 100,
+
+            character
+              ? character.max_hp
+              : 100,
+
+            character
+              ? character.spirit
+              : 100,
+
+            character
+              ? character.spirit
+              : 100
           ]
         );
 
-        await run(
-          [
-            'INSERT INTO character_room_bindings(',
-            '  room_id,',
-            '  character_id,',
-            '  user_id',
-            ')',
-            'VALUES(?, ?, ?)',
-            'ON CONFLICT DO NOTHING'
-          ].join('\n'),
-          [
-            room.id,
-            character.id,
-            req.user.id
-          ]
-        );
+        if (character) {
+          await run(
+            `
+              INSERT INTO character_room_bindings(
+                room_id,
+                character_id,
+                user_id
+              )
+
+              VALUES(
+                ?,
+                ?,
+                ?
+              )
+
+              ON CONFLICT DO NOTHING
+            `,
+            [
+              room.id,
+              character.id,
+              req.user.id
+            ]
+          );
+        }
 
         await addEvent(
           room.id,
@@ -2114,7 +2420,11 @@ app.post(
           'system',
           {
             text:
-              character.name +
+              (
+                character
+                  ? character.name
+                  : req.user.username
+              ) +
               ' 加入房間'
           }
         );
@@ -2144,27 +2454,31 @@ app.post(
 app.get(
   '/api/rooms',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const rooms =
         await all(
-          [
-            'SELECT DISTINCT',
-            '  r.id,',
-            '  r.code,',
-            '  r.name,',
-            '  r.owner_id,',
-            '  r.status,',
-            '  r.round,',
-            '  r.saved,',
-            '  r.created_at,',
-            '  r.updated_at',
-            'FROM rooms r',
-            'JOIN room_members rm',
-            '  ON rm.room_id = r.id',
-            'WHERE rm.user_id = ?',
-            'ORDER BY r.updated_at DESC'
-          ].join('\n'),
+          `
+            SELECT DISTINCT
+              r.id,
+              r.code,
+              r.name,
+              r.owner_id,
+              r.status,
+              r.round,
+              r.saved,
+              r.created_at,
+              r.updated_at
+
+            FROM rooms r
+
+            JOIN room_members rm
+              ON rm.room_id = r.id
+
+            WHERE rm.user_id = ?
+
+            ORDER BY r.updated_at DESC
+          `,
           [req.user.id]
         );
 
@@ -2187,15 +2501,19 @@ app.get(
 app.get(
   '/api/rooms/:id',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       const user =
         await get(
-          [
-            'SELECT id, is_admin',
-            'FROM users',
-            'WHERE id = ?'
-          ].join('\n'),
+          `
+            SELECT
+              id,
+              is_admin
+
+            FROM users
+
+            WHERE id = ?
+          `,
           [req.user.id]
         );
 
@@ -2240,7 +2558,7 @@ app.get(
 app.get(
   '/api/rooms/:id/characters',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       await requireRoomOwnerOrAdmin(
         req.user.id,
@@ -2249,18 +2567,23 @@ app.get(
 
       const characters =
         await all(
-          [
-            'SELECT',
-            '  c.*,',
-            '  u.username',
-            'FROM character_cards c',
-            'JOIN character_room_bindings crb',
-            '  ON crb.character_id = c.id',
-            'JOIN users u',
-            '  ON u.id = c.user_id',
-            'WHERE crb.room_id = ?',
-            'ORDER BY c.id ASC'
-          ].join('\n'),
+          `
+            SELECT
+              c.*,
+              u.username
+
+            FROM character_cards c
+
+            JOIN character_room_bindings crb
+              ON crb.character_id = c.id
+
+            JOIN users u
+              ON u.id = c.user_id
+
+            WHERE crb.room_id = ?
+
+            ORDER BY c.id ASC
+          `,
           [req.params.id]
         );
 
@@ -2289,7 +2612,7 @@ app.get(
 app.post(
   '/api/rooms/:id/start',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       await requireRoomOwnerOrAdmin(
         req.user.id,
@@ -2298,32 +2621,40 @@ app.post(
 
       const current =
         await get(
-          [
-            'SELECT user_id',
-            'FROM room_members',
-            'WHERE room_id = ?',
-            'AND role = \'player\'',
-            'ORDER BY joined_at ASC',
-            'LIMIT 1'
-          ].join('\n'),
+          `
+            SELECT
+              user_id
+
+            FROM room_members
+
+            WHERE room_id = ?
+              AND role = 'player'
+
+            ORDER BY joined_at ASC
+
+            LIMIT 1
+          `,
           [req.params.id]
         );
 
       await run(
-        [
-          'UPDATE rooms',
-          'SET',
-          '  status = \'active\',',
-          '  saved = FALSE,',
-          '  round = 1,',
-          '  current_actor_id = ?,',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE id = ?'
-        ].join('\n'),
+        `
+          UPDATE rooms
+
+          SET
+            status = 'active',
+            saved = FALSE,
+            round = 1,
+            current_actor_id = ?,
+            updated_at = CURRENT_TIMESTAMP
+
+          WHERE id = ?
+        `,
         [
           current
             ? current.user_id
             : null,
+
           req.params.id
         ]
       );
@@ -2372,7 +2703,7 @@ app.post(
 app.post(
   '/api/rooms/:id/next-turn',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       await requireRoomOwnerOrAdmin(
         req.user.id,
@@ -2381,11 +2712,16 @@ app.post(
 
       const room =
         await get(
-          'SELECT * FROM rooms WHERE id = ?',
+          `
+            SELECT *
+            FROM rooms
+            WHERE id = ?
+          `,
           [req.params.id]
         );
 
       if (
+        !room ||
         room.status !== 'active'
       ) {
         return res.status(400).json({
@@ -2396,13 +2732,17 @@ app.post(
 
       const members =
         await all(
-          [
-            'SELECT user_id',
-            'FROM room_members',
-            'WHERE room_id = ?',
-            'AND role = \'player\'',
-            'ORDER BY joined_at ASC'
-          ].join('\n'),
+          `
+            SELECT
+              user_id
+
+            FROM room_members
+
+            WHERE room_id = ?
+              AND role = 'player'
+
+            ORDER BY joined_at ASC
+          `,
           [req.params.id]
         );
 
@@ -2417,16 +2757,13 @@ app.post(
         Math.max(
           0,
           members.findIndex(
-            function (m) {
-              return (
-                String(
-                  m.user_id
-                ) ===
-                String(
-                  room.current_actor_id
-                )
-              );
-            }
+            (m) =>
+              String(
+                m.user_id
+              ) ===
+              String(
+                room.current_actor_id
+              )
           )
         );
 
@@ -2442,14 +2779,16 @@ app.post(
           : room.round;
 
       await run(
-        [
-          'UPDATE rooms',
-          'SET',
-          '  round = ?,',
-          '  current_actor_id = ?,',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE id = ?'
-        ].join('\n'),
+        `
+          UPDATE rooms
+
+          SET
+            round = ?,
+            current_actor_id = ?,
+            updated_at = CURRENT_TIMESTAMP
+
+          WHERE id = ?
+        `,
         [
           nextRound,
           next.user_id,
@@ -2504,7 +2843,7 @@ app.post(
 app.post(
   '/api/rooms/:id/save',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       await requireRoomOwnerOrAdmin(
         req.user.id,
@@ -2512,14 +2851,16 @@ app.post(
       );
 
       await run(
-        [
-          'UPDATE rooms',
-          'SET',
-          '  saved = TRUE,',
-          '  status = \'saved\',',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE id = ?'
-        ].join('\n'),
+        `
+          UPDATE rooms
+
+          SET
+            saved = TRUE,
+            status = 'saved',
+            updated_at = CURRENT_TIMESTAMP
+
+          WHERE id = ?
+        `,
         [req.params.id]
       );
 
@@ -2567,7 +2908,7 @@ app.post(
 app.post(
   '/api/rooms/:id/leave',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       await requireRoomOwnerOrAdmin(
         req.user.id,
@@ -2575,15 +2916,17 @@ app.post(
       );
 
       await run(
-        [
-          'UPDATE rooms',
-          'SET',
-          '  saved = TRUE,',
-          '  status = \'closed\',',
-          '  closed_at = CURRENT_TIMESTAMP,',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE id = ?'
-        ].join('\n'),
+        `
+          UPDATE rooms
+
+          SET
+            saved = TRUE,
+            status = 'closed',
+            closed_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+
+          WHERE id = ?
+        `,
         [req.params.id]
       );
 
@@ -2634,7 +2977,7 @@ app.post(
 app.post(
   '/api/rooms/:id/reopen',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       await requireRoomOwnerOrAdmin(
         req.user.id,
@@ -2642,15 +2985,17 @@ app.post(
       );
 
       await run(
-        [
-          'UPDATE rooms',
-          'SET',
-          '  status = \'lobby\',',
-          '  saved = FALSE,',
-          '  closed_at = NULL,',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE id = ?'
-        ].join('\n'),
+        `
+          UPDATE rooms
+
+          SET
+            status = 'lobby',
+            saved = FALSE,
+            closed_at = NULL,
+            updated_at = CURRENT_TIMESTAMP
+
+          WHERE id = ?
+        `,
         [req.params.id]
       );
 
@@ -2698,7 +3043,7 @@ app.post(
 app.patch(
   '/api/rooms/:id/member/:userId',
   auth,
-  async function (req, res) {
+  async (req, res) => {
     try {
       await requireRoomMember(
         req.user.id,
@@ -2712,21 +3057,27 @@ app.patch(
 
       const room =
         await get(
-          [
-            'SELECT owner_id',
-            'FROM rooms',
-            'WHERE id = ?'
-          ].join('\n'),
+          `
+            SELECT
+              owner_id
+
+            FROM rooms
+
+            WHERE id = ?
+          `,
           [req.params.id]
         );
 
       const currentUser =
         await get(
-          [
-            'SELECT is_admin',
-            'FROM users',
-            'WHERE id = ?'
-          ].join('\n'),
+          `
+            SELECT
+              is_admin
+
+            FROM users
+
+            WHERE id = ?
+          `,
           [req.user.id]
         );
 
@@ -2773,7 +3124,10 @@ app.patch(
       const updates = [];
       const values = [];
 
-      for (const field of fields) {
+      for (
+        const field
+        of fields
+      ) {
         if (
           req.body[field] !==
           undefined
@@ -2787,7 +3141,10 @@ app.patch(
             'display_name'
               ? String(
                   req.body[field]
-                ).slice(0, 30)
+                ).slice(
+                  0,
+                  30
+                )
               : Math.max(
                   0,
                   Number(
@@ -2811,13 +3168,14 @@ app.patch(
       );
 
       await run(
-        [
-          'UPDATE room_members',
-          'SET ' +
-            updates.join(', '),
-          'WHERE room_id = ?',
-          'AND user_id = ?'
-        ].join('\n'),
+        `
+          UPDATE room_members
+
+          SET ${updates.join(', ')}
+
+          WHERE room_id = ?
+            AND user_id = ?
+        `,
         values
       );
 
@@ -2910,27 +3268,37 @@ const onlineByRoom =
 
 io.on(
   'connection',
-  async function (socket) {
+  async (socket) => {
 
-    /* ================================================
+    /* =====================================================
        ENTER ROOM
-    ================================================= */
+    ===================================================== */
 
     socket.on(
       'room:enter',
-      async function (data) {
+      async (data) => {
         try {
           const roomId =
             data &&
             data.roomId;
 
+          if (!roomId) {
+            throw new Error(
+              '缺少房間 ID'
+            );
+          }
+
           const user =
             await get(
-              [
-                'SELECT id, is_admin',
-                'FROM users',
-                'WHERE id = ?'
-              ].join('\n'),
+              `
+                SELECT
+                  id,
+                  is_admin
+
+                FROM users
+
+                WHERE id = ?
+              `,
               [socket.user.id]
             );
 
@@ -2948,7 +3316,11 @@ io.on(
           } else {
             const exists =
               await get(
-                'SELECT id FROM rooms WHERE id = ?',
+                `
+                  SELECT id
+                  FROM rooms
+                  WHERE id = ?
+                `,
                 [roomId]
               );
 
@@ -3010,13 +3382,13 @@ io.on(
       }
     );
 
-    /* ================================================
+    /* =====================================================
        CHAT
-    ================================================= */
+    ===================================================== */
 
     socket.on(
       'chat:send',
-      async function (data) {
+      async (data) => {
         try {
           const roomId =
             data &&
@@ -3028,11 +3400,15 @@ io.on(
 
           const user =
             await get(
-              [
-                'SELECT id, is_admin',
-                'FROM users',
-                'WHERE id = ?'
-              ].join('\n'),
+              `
+                SELECT
+                  id,
+                  is_admin
+
+                FROM users
+
+                WHERE id = ?
+              `,
               [socket.user.id]
             );
 
@@ -3054,7 +3430,10 @@ io.on(
               text || ''
             )
               .trim()
-              .slice(0, 1000);
+              .slice(
+                0,
+                1000
+              );
 
           if (!safe) {
             return;
@@ -3087,13 +3466,13 @@ io.on(
       }
     );
 
-    /* ================================================
+    /* =====================================================
        DICE
-    ================================================= */
+    ===================================================== */
 
     socket.on(
       'dice:roll',
-      async function (data) {
+      async (data) => {
         try {
           const roomId =
             data &&
@@ -3113,11 +3492,15 @@ io.on(
 
           const user =
             await get(
-              [
-                'SELECT id, is_admin',
-                'FROM users',
-                'WHERE id = ?'
-              ].join('\n'),
+              `
+                SELECT
+                  id,
+                  is_admin
+
+                FROM users
+
+                WHERE id = ?
+              `,
               [socket.user.id]
             );
 
@@ -3173,22 +3556,18 @@ io.on(
                 length:
                   count
               },
-              function () {
-                return (
-                  1 +
-                  Math.floor(
-                    Math.random() *
-                    sides
-                  )
-                );
-              }
+              () =>
+                1 +
+                Math.floor(
+                  Math.random() *
+                  sides
+                )
             );
 
           const total =
             rolls.reduce(
-              function (a, b) {
-                return a + b;
-              },
+              (a, b) =>
+                a + b,
               0
             ) + mod;
 
@@ -3201,7 +3580,10 @@ io.on(
               label:
                 String(
                   label
-                ).slice(0, 80),
+                ).slice(
+                  0,
+                  80
+                ),
 
               rolls,
 
@@ -3230,13 +3612,13 @@ io.on(
       }
     );
 
-    /* ================================================
+    /* =====================================================
        DISCONNECT
-    ================================================= */
+    ===================================================== */
 
     socket.on(
       'disconnect',
-      function () {
+      () => {
         for (
           const [
             roomId,
@@ -3276,9 +3658,7 @@ io.on(
    SHUTDOWN
 ========================================================= */
 
-async function shutdown(
-  signal
-) {
+async function shutdown(signal) {
   console.log(
     signal +
     ' received, shutting down...'
@@ -3287,9 +3667,8 @@ async function shutdown(
   io.close();
 
   server.close(
-    async function () {
+    async () => {
       await pool.end();
-
       process.exit(0);
     }
   );
@@ -3297,7 +3676,7 @@ async function shutdown(
 
 process.on(
   'SIGTERM',
-  function () {
+  () => {
     shutdown(
       'SIGTERM'
     );
@@ -3306,7 +3685,7 @@ process.on(
 
 process.on(
   'SIGINT',
-  function () {
+  () => {
     shutdown(
       'SIGINT'
     );
@@ -3318,24 +3697,22 @@ process.on(
 ========================================================= */
 
 initDb()
-  .then(
-    function () {
-      server.listen(
-        PORT,
-        HOST,
-        function () {
-          console.log(
-            'TRPG Online listening on ' +
-            HOST +
-            ':' +
-            PORT
-          );
-        }
-      );
-    }
-  )
+  .then(() => {
+    server.listen(
+      PORT,
+      HOST,
+      () => {
+        console.log(
+          'TRPG Online listening on ' +
+          HOST +
+          ':' +
+          PORT
+        );
+      }
+    );
+  })
   .catch(
-    function (err) {
+    (err) => {
       console.error(
         'Database initialization failed:',
         err
