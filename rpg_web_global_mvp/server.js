@@ -48,9 +48,11 @@ const pool = new Pool({
       process.env.PGPOOL_MAX || 10
     ),
 
-  idleTimeoutMillis: 30000,
+  idleTimeoutMillis:
+    30000,
 
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis:
+    5000,
 
   ssl:
     process.env.PGSSL === 'disable'
@@ -61,7 +63,6 @@ const pool = new Pool({
           }
         : undefined
 });
-
 
 /* =========================================================
    DATABASE HELPERS
@@ -74,19 +75,26 @@ function pgSql(sql) {
     /\?/g,
     function () {
       i += 1;
+
       return '$' + i;
     }
   );
 }
 
-async function query(sql, params) {
+async function query(
+  sql,
+  params
+) {
   return pool.query(
     pgSql(sql),
     params || []
   );
 }
 
-async function get(sql, params) {
+async function get(
+  sql,
+  params
+) {
   const result =
     await query(
       sql,
@@ -99,7 +107,10 @@ async function get(sql, params) {
   );
 }
 
-async function all(sql, params) {
+async function all(
+  sql,
+  params
+) {
   const result =
     await query(
       sql,
@@ -109,7 +120,10 @@ async function all(sql, params) {
   return result.rows;
 }
 
-async function run(sql, params) {
+async function run(
+  sql,
+  params
+) {
   const result =
     await query(
       sql,
@@ -134,17 +148,12 @@ async function run(sql, params) {
   };
 }
 
-
 /* =========================================================
-   DATABASE INITIALIZATION
+   DATABASE
 ========================================================= */
 
 async function initDb() {
-
   const sql = [
-
-    /* USERS */
-
     'CREATE TABLE IF NOT EXISTS users (',
     '  id BIGSERIAL PRIMARY KEY,',
     '  username VARCHAR(20) NOT NULL UNIQUE,',
@@ -152,9 +161,6 @@ async function initDb() {
     '  is_admin BOOLEAN NOT NULL DEFAULT FALSE,',
     '  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP',
     ');',
-
-
-    /* ROOMS */
 
     'CREATE TABLE IF NOT EXISTS rooms (',
     '  id BIGSERIAL PRIMARY KEY,',
@@ -170,9 +176,6 @@ async function initDb() {
     '  closed_at TIMESTAMPTZ',
     ');',
 
-
-    /* ROOM MEMBERS */
-
     'CREATE TABLE IF NOT EXISTS room_members (',
     '  room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,',
     '  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,',
@@ -186,9 +189,6 @@ async function initDb() {
     '  PRIMARY KEY(room_id, user_id)',
     ');',
 
-
-    /* EVENTS */
-
     'CREATE TABLE IF NOT EXISTS events (',
     '  id BIGSERIAL PRIMARY KEY,',
     '  room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,',
@@ -197,9 +197,6 @@ async function initDb() {
     '  payload JSONB NOT NULL,',
     '  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP',
     ');',
-
-
-    /* GLOBAL CHARACTER CARD */
 
     'CREATE TABLE IF NOT EXISTS character_cards (',
     '  id BIGSERIAL PRIMARY KEY,',
@@ -234,9 +231,6 @@ async function initDb() {
     '  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP',
     ');',
 
-
-    /* ROOM <-> CHARACTER */
-
     'CREATE TABLE IF NOT EXISTS character_room_bindings (',
     '  room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,',
     '  character_id BIGINT NOT NULL REFERENCES character_cards(id) ON DELETE CASCADE,',
@@ -245,9 +239,6 @@ async function initDb() {
     '  PRIMARY KEY(room_id, user_id),',
     '  UNIQUE(room_id, character_id)',
     ');',
-
-
-    /* INDEXES */
 
     'CREATE INDEX IF NOT EXISTS idx_room_members_room',
     'ON room_members(room_id);',
@@ -266,16 +257,11 @@ async function initDb() {
 
     'CREATE INDEX IF NOT EXISTS idx_character_cards_user',
     'ON character_cards(user_id);'
-
   ].join('\n');
-
 
   await pool.query(sql);
 
-
-  /* =======================================================
-     舊資料庫升級
-  ======================================================= */
+  /* 舊資料庫升級 */
 
   await pool.query(
     [
@@ -293,22 +279,18 @@ async function initDb() {
     ].join('\n')
   );
 
-
   await ensureAdmin();
 }
 
-
 /* =========================================================
-   GLOBAL DM
+   GLOBAL ADMIN
 ========================================================= */
 
 async function ensureAdmin() {
-
   if (
     !ADMIN_USERNAME ||
     !ADMIN_PASSWORD
   ) {
-
     console.log(
       'ADMIN_USERNAME / ADMIN_PASSWORD not set. Global DM account will not be created automatically.'
     );
@@ -316,16 +298,13 @@ async function ensureAdmin() {
     return;
   }
 
-
   if (
     ADMIN_PASSWORD.length < 6
   ) {
-
     throw new Error(
       'ADMIN_PASSWORD must be at least 6 characters'
     );
   }
-
 
   const existing =
     await get(
@@ -334,11 +313,8 @@ async function ensureAdmin() {
         'FROM users',
         'WHERE username = ?'
       ].join('\n'),
-      [
-        ADMIN_USERNAME
-      ]
+      [ADMIN_USERNAME]
     );
-
 
   const hash =
     await bcrypt.hash(
@@ -346,9 +322,7 @@ async function ensureAdmin() {
       12
     );
 
-
   if (existing) {
-
     await run(
       [
         'UPDATE users',
@@ -371,7 +345,6 @@ async function ensureAdmin() {
     return;
   }
 
-
   await run(
     [
       'INSERT INTO users(',
@@ -388,50 +361,38 @@ async function ensureAdmin() {
     ]
   );
 
-
   console.log(
     'Global DM administrator created: ' +
     ADMIN_USERNAME
   );
 }
 
-
 /* =========================================================
    AUTH
 ========================================================= */
 
 function signToken(user) {
-
   return jwt.sign(
     {
-      id:
-        user.id,
-
-      username:
-        user.username,
-
+      id: user.id,
+      username: user.username,
       is_admin:
         Boolean(
           user.is_admin
         )
     },
-
     JWT_SECRET,
-
     {
-      expiresIn:
-        '7d'
+      expiresIn: '7d'
     }
   );
 }
-
 
 function auth(
   req,
   res,
   next
 ) {
-
   const raw =
     req.headers.authorization ||
     '';
@@ -441,18 +402,14 @@ function auth(
       ? raw.slice(7)
       : null;
 
-
   if (!token) {
-
     return res.status(401).json({
       error:
         '需要登入'
     });
   }
 
-
   try {
-
     req.user =
       jwt.verify(
         token,
@@ -460,9 +417,7 @@ function auth(
       );
 
     next();
-
   } catch {
-
     return res.status(401).json({
       error:
         '登入已失效'
@@ -470,82 +425,63 @@ function auth(
   }
 }
 
-
 async function requireAdminUser(
   userId
 ) {
-
   const user =
     await get(
       [
-        'SELECT',
-        '  id,',
-        '  username,',
-        '  is_admin',
+        'SELECT id, username, is_admin',
         'FROM users',
         'WHERE id = ?'
       ].join('\n'),
-      [
-        userId
-      ]
+      [userId]
     );
-
 
   if (
     !user ||
     !user.is_admin
   ) {
-
     throw Object.assign(
       new Error(
         '只有全站 DM 可以執行此操作'
       ),
       {
-        status:
-          403
+        status: 403
       }
     );
   }
 
-
   return user;
 }
-
 
 async function adminAuth(
   req,
   res,
   next
 ) {
-
   try {
-
     await requireAdminUser(
       req.user.id
     );
 
     next();
-
   } catch (e) {
-
     res.status(
       e.status || 403
     ).json({
       error:
         e.message ||
-        '沒有 DM 權限'
+        '沒有全站 DM 權限'
     });
   }
 }
-
 
 function socketAuth(
   socket,
   next
 ) {
-
   try {
-
     socket.user =
       jwt.verify(
         socket.handshake.auth?.token ||
@@ -554,9 +490,7 @@ function socketAuth(
       );
 
     next();
-
   } catch {
-
     next(
       new Error(
         'unauthorized'
@@ -565,13 +499,11 @@ function socketAuth(
   }
 }
 
-
 /* =========================================================
    ROOM CODE
 ========================================================= */
 
 function generateCode() {
-
   const alphabet =
     'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -582,7 +514,6 @@ function generateCode() {
     i < 6;
     i += 1
   ) {
-
     out +=
       alphabet[
         Math.floor(
@@ -595,16 +526,12 @@ function generateCode() {
   return out;
 }
 
-
 async function uniqueCode() {
-
   let code;
 
   do {
-
     code =
       generateCode();
-
   } while (
     await get(
       [
@@ -612,15 +539,12 @@ async function uniqueCode() {
         'FROM rooms',
         'WHERE code = ?'
       ].join('\n'),
-      [
-        code
-      ]
+      [code]
     )
   );
 
   return code;
 }
-
 
 /* =========================================================
    CHARACTER CALCULATIONS
@@ -629,7 +553,6 @@ async function uniqueCode() {
 function calculateCharacter(
   character
 ) {
-
   const constitution =
     Number(
       character.constitution
@@ -639,7 +562,6 @@ function calculateCharacter(
     Number(
       character.spirit
     ) || 0;
-
 
   return {
     ...character,
@@ -670,144 +592,102 @@ function calculateCharacter(
   };
 }
 
-
-function safeJsonArray(
-  value
-) {
-
-  if (
-    Array.isArray(value)
-  ) {
-    return value;
-  }
-
-
-  if (
-    typeof value ===
-    'string'
-  ) {
-
-    try {
-
-      const parsed =
-        JSON.parse(
-          value
-        );
-
-      return Array.isArray(
-        parsed
-      )
-        ? parsed
-        : [];
-
-    } catch {
-
-      return [];
-    }
-  }
-
-
-  return [];
-}
-
-
 function parseCharacter(
   character
 ) {
-
   if (!character) {
     return null;
   }
 
-
   return calculateCharacter({
-
     ...character,
 
     sub_classes:
-      safeJsonArray(
-        character.sub_classes
-      ),
+      typeof character.sub_classes ===
+      'string'
+        ? JSON.parse(
+            character.sub_classes
+          )
+        : character.sub_classes,
 
     skills:
-      safeJsonArray(
-        character.skills
-      ),
+      typeof character.skills ===
+      'string'
+        ? JSON.parse(
+            character.skills
+          )
+        : character.skills,
 
     equipment:
-      safeJsonArray(
-        character.equipment
-      ),
+      typeof character.equipment ===
+      'string'
+        ? JSON.parse(
+            character.equipment
+          )
+        : character.equipment,
 
     weapons:
-      safeJsonArray(
-        character.weapons
-      )
-
+      typeof character.weapons ===
+      'string'
+        ? JSON.parse(
+            character.weapons
+          )
+        : character.weapons
   });
 }
-
 
 async function getCharacterByUser(
   userId
 ) {
-
   const character =
     await get(
       [
-        'SELECT *',
-        'FROM character_cards',
-        'WHERE user_id = ?'
+        'SELECT',
+        '  c.*,',
+        '  u.username',
+        'FROM character_cards c',
+        'JOIN users u',
+        '  ON u.id = c.user_id',
+        'WHERE c.user_id = ?'
       ].join('\n'),
-      [
-        userId
-      ]
+      [userId]
     );
-
 
   return parseCharacter(
     character
   );
 }
 
-
 async function requireCharacter(
   userId
 ) {
-
   const character =
     await getCharacterByUser(
       userId
     );
 
-
   if (!character) {
-
     throw Object.assign(
       new Error(
         '你還沒有建立角色卡'
       ),
       {
-        status:
-          404
+        status: 404
       }
     );
   }
 
-
   return character;
 }
 
-
 /* =========================================================
-   ROOM PERMISSIONS
+   ROOM PERMISSION
 ========================================================= */
 
 async function requireRoomMember(
   userId,
   roomId
 ) {
-
   const row =
     await get(
       [
@@ -822,30 +702,24 @@ async function requireRoomMember(
       ]
     );
 
-
   if (!row) {
-
     throw Object.assign(
       new Error(
         '你不是房間成員'
       ),
       {
-        status:
-          403
+        status: 403
       }
     );
   }
 
-
   return row;
 }
-
 
 async function requireOwner(
   userId,
   roomId
 ) {
-
   const row =
     await get(
       [
@@ -860,60 +734,38 @@ async function requireOwner(
       ]
     );
 
-
   if (!row) {
-
     throw Object.assign(
       new Error(
         '只有房間 DM 可以執行此操作'
       ),
       {
-        status:
-          403
+        status: 403
       }
     );
   }
 
-
   return row;
 }
-
-
-/*
- * 房間管理權：
- *
- * 1. 全站 DM 可以管理任何房間
- * 2. 房間 owner 可以管理自己的房間
- *
- * 注意：
- * 一般玩家不能建立房間。
- */
 
 async function requireRoomOwnerOrAdmin(
   userId,
   roomId
 ) {
-
   const user =
     await get(
       [
-        'SELECT',
-        '  id,',
-        '  is_admin',
+        'SELECT id, is_admin',
         'FROM users',
         'WHERE id = ?'
       ].join('\n'),
-      [
-        userId
-      ]
+      [userId]
     );
-
 
   if (
     user &&
     user.is_admin
   ) {
-
     const room =
       await get(
         [
@@ -921,29 +773,22 @@ async function requireRoomOwnerOrAdmin(
           'FROM rooms',
           'WHERE id = ?'
         ].join('\n'),
-        [
-          roomId
-        ]
+        [roomId]
       );
 
-
     if (!room) {
-
       throw Object.assign(
         new Error(
           '找不到房間'
         ),
         {
-          status:
-            404
+          status: 404
         }
       );
     }
 
-
     return room;
   }
-
 
   return requireOwner(
     userId,
@@ -951,6 +796,125 @@ async function requireRoomOwnerOrAdmin(
   );
 }
 
+/* =========================================================
+   ROOM DM CHECK
+========================================================= */
+
+async function requireRoomDM(
+  userId,
+  roomId
+) {
+  const room =
+    await get(
+      [
+        'SELECT *',
+        'FROM rooms',
+        'WHERE id = ?',
+        'AND owner_id = ?'
+      ].join('\n'),
+      [
+        roomId,
+        userId
+      ]
+    );
+
+  if (!room) {
+    throw Object.assign(
+      new Error(
+        '只有該房間 DM 可以執行此操作'
+      ),
+      {
+        status: 403
+      }
+    );
+  }
+
+  return room;
+}
+
+/* =========================================================
+   CHARACTER MANAGEMENT PERMISSION
+========================================================= */
+
+/*
+ * 查看角色卡：
+ *
+ * 1. 玩家自己
+ * 2. 全站 DM
+ * 3. 該角色所在房間的 DM
+ *
+ * 注意：
+ * 不需要玩家在線。
+ * 不需要玩家目前在房間。
+ */
+
+async function canManageCharacter(
+  requesterId,
+  targetUserId
+) {
+  if (
+    String(requesterId) ===
+    String(targetUserId)
+  ) {
+    return {
+      allowed: true,
+      reason: 'self'
+    };
+  }
+
+  const requester =
+    await get(
+      [
+        'SELECT id, is_admin',
+        'FROM users',
+        'WHERE id = ?'
+      ].join('\n'),
+      [requesterId]
+    );
+
+  if (!requester) {
+    return {
+      allowed: false
+    };
+  }
+
+  if (requester.is_admin) {
+    return {
+      allowed: true,
+      reason: 'global_admin'
+    };
+  }
+
+  const room =
+    await get(
+      [
+        'SELECT r.id',
+        'FROM rooms r',
+        'JOIN room_members rm',
+        '  ON rm.room_id = r.id',
+        'WHERE r.owner_id = ?',
+        'AND rm.user_id = ?',
+        'ORDER BY r.updated_at DESC',
+        'LIMIT 1'
+      ].join('\n'),
+      [
+        requesterId,
+        targetUserId
+      ]
+    );
+
+  if (room) {
+    return {
+      allowed: true,
+      reason: 'room_dm',
+      roomId: room.id
+    };
+  }
+
+  return {
+    allowed: false
+  };
+}
 
 /* =========================================================
    EVENTS
@@ -962,7 +926,6 @@ async function addEvent(
   type,
   payload
 ) {
-
   await run(
     [
       'INSERT INTO events(',
@@ -983,19 +946,15 @@ async function addEvent(
     ]
   );
 
-
   await run(
     [
       'UPDATE rooms',
       'SET updated_at = CURRENT_TIMESTAMP',
       'WHERE id = ?'
     ].join('\n'),
-    [
-      roomId
-    ]
+    [roomId]
   );
 }
-
 
 /* =========================================================
    ROOM SNAPSHOT
@@ -1004,39 +963,30 @@ async function addEvent(
 async function roomSnapshot(
   roomId
 ) {
-
   const room =
     await get(
       [
         'SELECT',
-        '  r.id,',
-        '  r.code,',
-        '  r.name,',
-        '  r.owner_id,',
-        '  owner.username AS owner_username,',
-        '  owner.is_admin AS owner_is_admin,',
-        '  r.status,',
-        '  r.round,',
-        '  r.current_actor_id,',
-        '  r.saved,',
-        '  r.created_at,',
-        '  r.updated_at,',
-        '  r.closed_at',
-        'FROM rooms r',
-        'JOIN users owner',
-        '  ON owner.id = r.owner_id',
-        'WHERE r.id = ?'
+        '  id,',
+        '  code,',
+        '  name,',
+        '  owner_id,',
+        '  status,',
+        '  round,',
+        '  current_actor_id,',
+        '  saved,',
+        '  created_at,',
+        '  updated_at,',
+        '  closed_at',
+        'FROM rooms',
+        'WHERE id = ?'
       ].join('\n'),
-      [
-        roomId
-      ]
+      [roomId]
     );
-
 
   if (!room) {
     return null;
   }
-
 
   const members =
     await all(
@@ -1062,11 +1012,8 @@ async function roomSnapshot(
         'WHERE rm.room_id = ?',
         'ORDER BY rm.joined_at ASC'
       ].join('\n'),
-      [
-        roomId
-      ]
+      [roomId]
     );
-
 
   const events =
     await all(
@@ -1084,14 +1031,10 @@ async function roomSnapshot(
         'ORDER BY e.id DESC',
         'LIMIT 100'
       ].join('\n'),
-      [
-        roomId
-      ]
+      [roomId]
     );
 
-
   return {
-
     room,
 
     members,
@@ -1101,9 +1044,7 @@ async function roomSnapshot(
         .reverse()
         .map(
           function (e) {
-
             return {
-
               ...e,
 
               payload:
@@ -1118,7 +1059,6 @@ async function roomSnapshot(
         )
   };
 }
-
 
 /* =========================================================
    EXPRESS
@@ -1138,11 +1078,9 @@ app.disable(
 
 app.use(
   express.json({
-    limit:
-      '2mb'
+    limit: '2mb'
   })
 );
-
 
 /* =========================================================
    HEALTH
@@ -1154,44 +1092,29 @@ app.get(
     req,
     res
   ) {
-
     try {
-
       await pool.query(
         'SELECT 1'
       );
 
       res.json({
-
-        ok:
-          true,
-
+        ok: true,
         service:
           'trpg-online',
-
         database:
           'ok',
-
         time:
           new Date().toISOString()
-
       });
-
     } catch {
-
       res.status(503).json({
-
-        ok:
-          false,
-
+        ok: false,
         database:
           'unavailable'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    STATIC
@@ -1206,7 +1129,6 @@ app.use(
   )
 );
 
-
 /* =========================================================
    REGISTER
 ========================================================= */
@@ -1217,15 +1139,12 @@ app.post(
     req,
     res
   ) {
-
     try {
-
       const username =
         String(
           req.body.username ||
             ''
         ).trim();
-
 
       const password =
         String(
@@ -1233,41 +1152,31 @@ app.post(
             ''
         );
 
-
       if (
         !/^[\w\u4e00-\u9fff-]{2,20}$/.test(
           username
         )
       ) {
-
         return res.status(400).json({
-
           error:
             '帳號需為2-20字，可用中文、英文、數字、底線或連字號'
-
         });
       }
-
 
       if (
         password.length < 6
       ) {
-
         return res.status(400).json({
-
           error:
             '密碼至少6碼'
-
         });
       }
-
 
       const hash =
         await bcrypt.hash(
           password,
           10
         );
-
 
       const result =
         await run(
@@ -1285,9 +1194,7 @@ app.post(
           ]
         );
 
-
       const user = {
-
         id:
           result.id,
 
@@ -1295,46 +1202,32 @@ app.post(
 
         is_admin:
           false
-
       };
 
-
-      /*
-       * 一般玩家註冊後：
-       *
-       * 可以之後自己建立角色卡。
-       * 但不能建立房間成為 DM。
-       */
-
       res.json({
-
         token:
           signToken(
             user
           ),
 
         user
-
       });
-
     } catch (err) {
-
       res.status(
-        err.code === '23505'
+        err.code ===
+          '23505'
           ? 409
           : 500
       ).json({
-
         error:
-          err.code === '23505'
+          err.code ===
+          '23505'
             ? '帳號已存在'
             : '註冊失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    LOGIN
@@ -1346,22 +1239,18 @@ app.post(
     req,
     res
   ) {
-
     try {
-
       const username =
         String(
           req.body.username ||
             ''
         ).trim();
 
-
       const password =
         String(
           req.body.password ||
             ''
         );
-
 
       const user =
         await get(
@@ -1374,33 +1263,23 @@ app.post(
             'FROM users',
             'WHERE username = ?'
           ].join('\n'),
-          [
-            username
-          ]
+          [username]
         );
-
 
       if (
         !user ||
-        !(
-          await bcrypt.compare(
-            password,
-            user.password_hash
-          )
-        )
+        !(await bcrypt.compare(
+          password,
+          user.password_hash
+        ))
       ) {
-
         return res.status(401).json({
-
           error:
             '帳號或密碼錯誤'
-
         });
       }
 
-
       const safeUser = {
-
         id:
           user.id,
 
@@ -1411,12 +1290,9 @@ app.post(
           Boolean(
             user.is_admin
           )
-
       };
 
-
       res.json({
-
         token:
           signToken(
             safeUser
@@ -1424,21 +1300,15 @@ app.post(
 
         user:
           safeUser
-
       });
-
     } catch {
-
       res.status(500).json({
-
         error:
           '登入失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    CURRENT USER
@@ -1451,9 +1321,7 @@ app.get(
     req,
     res
   ) {
-
     try {
-
       const user =
         await get(
           [
@@ -1464,27 +1332,18 @@ app.get(
             'FROM users',
             'WHERE id = ?'
           ].join('\n'),
-          [
-            req.user.id
-          ]
+          [req.user.id]
         );
 
-
       if (!user) {
-
         return res.status(401).json({
-
           error:
             '帳號不存在'
-
         });
       }
 
-
       res.json({
-
         user: {
-
           id:
             user.id,
 
@@ -1495,26 +1354,19 @@ app.get(
             Boolean(
               user.is_admin
             )
-
         }
-
       });
-
     } catch {
-
       res.status(500).json({
-
         error:
           '讀取使用者資料失敗'
-
       });
     }
   }
 );
 
-
 /* =========================================================
-   GLOBAL DM INFO
+   GLOBAL ADMIN INFO
 ========================================================= */
 
 app.get(
@@ -1525,17 +1377,13 @@ app.get(
     req,
     res
   ) {
-
     const user =
       await requireAdminUser(
         req.user.id
       );
 
-
     res.json({
-
       admin: {
-
         id:
           user.id,
 
@@ -1544,16 +1392,13 @@ app.get(
 
         is_admin:
           true
-
       }
-
     });
   }
 );
 
-
 /* =========================================================
-   ADMIN - ALL USERS
+   ADMIN - USERS
 ========================================================= */
 
 app.get(
@@ -1564,9 +1409,7 @@ app.get(
     req,
     res
   ) {
-
     try {
-
       const users =
         await all(
           [
@@ -1576,8 +1419,7 @@ app.get(
             '  u.is_admin,',
             '  u.created_at,',
             '  c.id AS character_id,',
-            '  c.name AS character_name,',
-            '  c.level AS character_level',
+            '  c.name AS character_name',
             'FROM users u',
             'LEFT JOIN character_cards c',
             '  ON c.user_id = u.id',
@@ -1585,129 +1427,20 @@ app.get(
           ].join('\n')
         );
 
-
       res.json({
         users
       });
-
     } catch {
-
       res.status(500).json({
-
         error:
           '讀取全站使用者失敗'
-
       });
     }
   }
 );
 
-
 /* =========================================================
-   ADMIN - ALL CHARACTERS
-   不依賴房間
-   不依賴在線狀態
-========================================================= */
-
-app.get(
-  '/api/admin/characters',
-  auth,
-  adminAuth,
-  async function (
-    req,
-    res
-  ) {
-
-    try {
-
-      const rows =
-        await all(
-          [
-            'SELECT',
-            '  c.*,',
-            '  u.username,',
-            '  u.is_admin',
-            'FROM character_cards c',
-            'JOIN users u',
-            '  ON u.id = c.user_id',
-            'ORDER BY c.id ASC'
-          ].join('\n')
-        );
-
-
-      res.json({
-
-        characters:
-          rows.map(
-            parseCharacter
-          )
-
-      });
-
-    } catch {
-
-      res.status(500).json({
-
-        error:
-          '讀取全站角色卡失敗'
-
-      });
-    }
-  }
-);
-
-
-/* =========================================================
-   ADMIN - GET SPECIFIC CHARACTER
-========================================================= */
-
-app.get(
-  '/api/admin/users/:id/character',
-  auth,
-  adminAuth,
-  async function (
-    req,
-    res
-  ) {
-
-    try {
-
-      const character =
-        await getCharacterByUser(
-          req.params.id
-        );
-
-
-      if (!character) {
-
-        return res.status(404).json({
-
-          error:
-            '此玩家沒有角色卡'
-
-        });
-      }
-
-
-      res.json({
-        character
-      });
-
-    } catch {
-
-      res.status(500).json({
-
-        error:
-          '讀取角色卡失敗'
-
-      });
-    }
-  }
-);
-
-
-/* =========================================================
-   ADMIN - DELETE USER ACCOUNT
+   ADMIN - DELETE USER
 ========================================================= */
 
 app.delete(
@@ -1718,14 +1451,11 @@ app.delete(
     req,
     res
   ) {
-
     try {
-
       const targetId =
         Number(
           req.params.id
         );
-
 
       if (
         !Number.isInteger(
@@ -1733,15 +1463,21 @@ app.delete(
         ) ||
         targetId <= 0
       ) {
-
         return res.status(400).json({
-
           error:
             '無效的帳號 ID'
-
         });
       }
 
+      if (
+        String(targetId) ===
+        String(req.user.id)
+      ) {
+        return res.status(400).json({
+          error:
+            '不能刪除目前登入中的全站 DM 帳號'
+        });
+      }
 
       const target =
         await get(
@@ -1753,118 +1489,52 @@ app.delete(
             'FROM users',
             'WHERE id = ?'
           ].join('\n'),
-          [
-            targetId
-          ]
+          [targetId]
         );
 
-
       if (!target) {
-
         return res.status(404).json({
-
           error:
-            '找不到此帳號'
-
+            '找不到帳號'
         });
       }
-
-
-      /*
-       * 不允許 DM 刪除自己的帳號。
-       */
-
-      if (
-        String(
-          target.id
-        ) ===
-        String(
-          req.user.id
-        )
-      ) {
-
-        return res.status(400).json({
-
-          error:
-            '不能刪除目前登入中的 DM 帳號'
-
-        });
-      }
-
-
-      /*
-       * 不允許透過一般刪除操作刪除另一個 DM。
-       *
-       * 這樣可以避免最後一個 DM 被刪掉，
-       * 導致整個系統沒有管理員。
-       */
 
       if (
         target.is_admin
       ) {
-
         return res.status(403).json({
-
           error:
-            '不能刪除其他 DM 帳號'
-
+            '不能透過玩家管理介面刪除其他全站 DM'
         });
       }
-
-
-      /*
-       * 使用資料庫 CASCADE：
-       *
-       * users
-       *   ├─ character_cards
-       *   ├─ room_members
-       *   └─ character_room_bindings
-       *
-       * 都會一起清理。
-       */
 
       await run(
         [
           'DELETE FROM users',
           'WHERE id = ?'
         ].join('\n'),
-        [
-          targetId
-        ]
+        [targetId]
       );
-
 
       res.json({
+        ok: true,
 
-        ok:
-          true,
+        deleted_user: {
+          id:
+            target.id,
 
-        deleted_user_id:
-          target.id,
-
-        deleted_username:
-          target.username
-
+          username:
+            target.username
+        }
       });
-
-    } catch (e) {
-
-      console.error(
-        'Delete user error:',
-        e
-      );
-
-
+    } catch {
       res.status(500).json({
-
         error:
           '刪除帳號失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    ADMIN - ROOMS
@@ -1878,9 +1548,7 @@ app.get(
     req,
     res
   ) {
-
     try {
-
       const rooms =
         await all(
           [
@@ -1898,611 +1566,155 @@ app.get(
           ].join('\n')
         );
 
-
       res.json({
         rooms
       });
-
     } catch {
-
       res.status(500).json({
-
         error:
           '讀取全站房間失敗'
-
       });
     }
   }
 );
 
-
 /* =========================================================
-   ADMIN - VIEW ROOM
+   ADMIN - ALL CHARACTERS
 ========================================================= */
 
+/*
+ * 這是最重要的全站角色卡 API。
+ *
+ * 不需要：
+ * - 玩家在線
+ * - 玩家進房
+ * - 玩家目前在任何房間
+ */
+
 app.get(
-  '/api/admin/rooms/:id',
+  '/api/admin/characters',
   auth,
   adminAuth,
   async function (
     req,
     res
   ) {
-
     try {
-
-      const snapshot =
-        await roomSnapshot(
-          req.params.id
-        );
-
-
-      if (!snapshot) {
-
-        return res.status(404).json({
-
-          error:
-            '找不到房間'
-
-        });
-      }
-
-
-      res.json(
-        snapshot
-      );
-
-    } catch {
-
-      res.status(500).json({
-
-        error:
-          '讀取房間失敗'
-
-      });
-    }
-  }
-);
-
-
-/* =========================================================
-   ADMIN - VIEW ROOM CHARACTERS
-========================================================= */
-
-app.get(
-  '/api/admin/rooms/:id/characters',
-  auth,
-  adminAuth,
-  async function (
-    req,
-    res
-  ) {
-
-    try {
-
-      const characters =
+      const rows =
         await all(
           [
             'SELECT',
             '  c.*,',
             '  u.username',
             'FROM character_cards c',
-            'JOIN character_room_bindings crb',
-            '  ON crb.character_id = c.id',
             'JOIN users u',
             '  ON u.id = c.user_id',
-            'WHERE crb.room_id = ?',
             'ORDER BY c.id ASC'
-          ].join('\n'),
-          [
-            req.params.id
-          ]
+          ].join('\n')
         );
 
-
       res.json({
-
         characters:
-          characters.map(
+          rows.map(
             parseCharacter
           )
-
       });
-
     } catch {
-
       res.status(500).json({
-
         error:
-          '讀取房間角色卡失敗'
-
+          '讀取全站角色卡失敗'
       });
     }
   }
 );
 
-
 /* =========================================================
-   ADMIN - CLOSE ROOM
-========================================================= */
-
-app.post(
-  '/api/admin/rooms/:id/close',
-  auth,
-  adminAuth,
-  async function (
-    req,
-    res
-  ) {
-
-    try {
-
-      const room =
-        await get(
-          [
-            'SELECT *',
-            'FROM rooms',
-            'WHERE id = ?'
-          ].join('\n'),
-          [
-            req.params.id
-          ]
-        );
-
-
-      if (!room) {
-
-        return res.status(404).json({
-
-          error:
-            '找不到房間'
-
-        });
-      }
-
-
-      await run(
-        [
-          'UPDATE rooms',
-          'SET',
-          '  saved = TRUE,',
-          '  status = \'closed\',',
-          '  closed_at = CURRENT_TIMESTAMP,',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE id = ?'
-        ].join('\n'),
-        [
-          req.params.id
-        ]
-      );
-
-
-      await addEvent(
-        req.params.id,
-        req.user.id,
-        'admin',
-        {
-          text:
-            '全站 DM 已結束本次跑團並保存房間。'
-        }
-      );
-
-
-      const snapshot =
-        await roomSnapshot(
-          req.params.id
-        );
-
-
-      io.to(
-        'room:' +
-        req.params.id
-      ).emit(
-        'room:snapshot',
-        snapshot
-      );
-
-
-      res.json({
-        ok:
-          true,
-
-        room:
-          snapshot
-      });
-
-    } catch (e) {
-
-      res.status(
-        e.status || 500
-      ).json({
-
-        error:
-          e.message ||
-          '關閉房間失敗'
-
-      });
-    }
-  }
-);
-
-
-/* =========================================================
-   ADMIN - REOPEN ROOM
-========================================================= */
-
-app.post(
-  '/api/admin/rooms/:id/reopen',
-  auth,
-  adminAuth,
-  async function (
-    req,
-    res
-  ) {
-
-    try {
-
-      const room =
-        await get(
-          [
-            'SELECT *',
-            'FROM rooms',
-            'WHERE id = ?'
-          ].join('\n'),
-          [
-            req.params.id
-          ]
-        );
-
-
-      if (!room) {
-
-        return res.status(404).json({
-
-          error:
-            '找不到房間'
-
-        });
-      }
-
-
-      await run(
-        [
-          'UPDATE rooms',
-          'SET',
-          '  status = \'lobby\',',
-          '  saved = FALSE,',
-          '  closed_at = NULL,',
-          '  updated_at = CURRENT_TIMESTAMP',
-          'WHERE id = ?'
-        ].join('\n'),
-        [
-          req.params.id
-        ]
-      );
-
-
-      await addEvent(
-        req.params.id,
-        req.user.id,
-        'admin',
-        {
-          text:
-            '全站 DM 重新開啟了這場跑團。'
-        }
-      );
-
-
-      const snapshot =
-        await roomSnapshot(
-          req.params.id
-        );
-
-
-      io.to(
-        'room:' +
-        req.params.id
-      ).emit(
-        'room:snapshot',
-        snapshot
-      );
-
-
-      res.json({
-
-        ok:
-          true,
-
-        room:
-          snapshot
-
-      });
-
-    } catch (e) {
-
-      res.status(
-        e.status || 500
-      ).json({
-
-        error:
-          e.message ||
-          '重新開啟房間失敗'
-
-      });
-    }
-  }
-);
-
-
-/* =========================================================
-   CHARACTER - GET
+   ADMIN - GET CHARACTER BY USER
 ========================================================= */
 
 app.get(
-  '/api/character',
+  '/api/admin/characters/:userId',
   auth,
+  adminAuth,
   async function (
     req,
     res
   ) {
-
     try {
-
-      res.json({
-
-        character:
-          await getCharacterByUser(
-            req.user.id
-          )
-
-      });
-
-    } catch {
-
-      res.status(500).json({
-
-        error:
-          '讀取角色卡失敗'
-
-      });
-    }
-  }
-);
-
-
-/* =========================================================
-   CHARACTER - CREATE
-========================================================= */
-
-app.post(
-  '/api/character',
-  auth,
-  async function (
-    req,
-    res
-  ) {
-
-    try {
-
-      /*
-       * DM 不需要角色卡。
-       *
-       * 如果 DM 主動建立也允許，
-       * 但系統正常流程不會要求 DM 建立角色卡。
-       */
-
-      const exists =
-        await get(
-          [
-            'SELECT id',
-            'FROM character_cards',
-            'WHERE user_id = ?'
-          ].join('\n'),
-          [
-            req.user.id
-          ]
+      const targetId =
+        Number(
+          req.params.userId
         );
 
+      const user =
+        await get(
+          [
+            'SELECT',
+            '  id,',
+            '  username,',
+            '  is_admin',
+            'FROM users',
+            'WHERE id = ?'
+          ].join('\n'),
+          [targetId]
+        );
 
-      if (exists) {
-
-        return res.status(409).json({
-
+      if (!user) {
+        return res.status(404).json({
           error:
-            '你已經有角色卡，每個玩家只能擁有一張角色卡'
-
+            '找不到玩家'
         });
       }
 
-
-      const name =
-        String(
-          req.body.name ||
-            '未命名角色'
-        )
-          .trim()
-          .slice(
-            0,
-            50
-          );
-
-
-      const faction =
-        req.body.faction ===
-        '西國'
-          ? '西國'
-          : '東國';
-
-
-      const mainClass =
-        String(
-          req.body.main_class ||
-            '未設定'
-        )
-          .trim()
-          .slice(
-            0,
-            50
-          );
-
-
-      const subClasses =
-        Array.isArray(
-          req.body.sub_classes
-        )
-          ? req.body.sub_classes.slice(
-              0,
-              3
-            )
-          : [];
-
-
-      const skills =
-        Array.isArray(
-          req.body.skills
-        )
-          ? req.body.skills
-          : [];
-
-
-      const equipment =
-        Array.isArray(
-          req.body.equipment
-        )
-          ? req.body.equipment
-          : [];
-
-
-      const weapons =
-        Array.isArray(
-          req.body.weapons
-        )
-          ? req.body.weapons
-          : [];
-
-
-      const luck =
-        Math.max(
-          0,
-          Number(
-            req.body.luck ||
-              10
-          ) || 10
+      const character =
+        await getCharacterByUser(
+          targetId
         );
-
-
-      const result =
-        await run(
-          [
-            'INSERT INTO character_cards(',
-            '  user_id,',
-            '  name,',
-            '  faction,',
-            '  tier,',
-            '  level,',
-            '  main_class,',
-            '  sub_classes,',
-            '  luck,',
-            '  attribute_points,',
-            '  skills,',
-            '  equipment,',
-            '  weapons,',
-            '  affinity_light,',
-            '  affinity_dark,',
-            '  affinity_metal,',
-            '  affinity_wood,',
-            '  affinity_water,',
-            '  affinity_fire,',
-            '  affinity_earth',
-            ')',
-            'VALUES(',
-            '  ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?,',
-            '  ?::jsonb, ?::jsonb, ?::jsonb,',
-            '  ?, ?, ?, ?, ?, ?, ?',
-            ')',
-            'RETURNING id'
-          ].join('\n'),
-          [
-            req.user.id,
-            name,
-            faction,
-            1,
-            1,
-            mainClass,
-            JSON.stringify(
-              subClasses
-            ),
-            luck,
-            50,
-            JSON.stringify(
-              skills
-            ),
-            JSON.stringify(
-              equipment
-            ),
-            JSON.stringify(
-              weapons
-            ),
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ]
-        );
-
 
       res.json({
-
-        character:
-          await getCharacterByUser(
-            req.user.id
-          )
-
+        user,
+        character
       });
-
-    } catch (e) {
-
-      res.status(
-        e.code === '23505'
-          ? 409
-          : 500
-      ).json({
-
+    } catch {
+      res.status(500).json({
         error:
-          e.code === '23505'
-            ? '你已經有角色卡'
-            : '建立角色卡失敗'
-
+          '讀取角色卡失敗'
       });
     }
   }
 );
 
-
 /* =========================================================
-   CHARACTER - UPDATE
+   ADMIN - UPDATE CHARACTER BY USER
 ========================================================= */
 
 app.patch(
-  '/api/character',
+  '/api/admin/characters/:userId',
   auth,
+  adminAuth,
   async function (
     req,
     res
   ) {
-
     try {
+      const targetId =
+        Number(
+          req.params.userId
+        );
 
-      await requireCharacter(
-        req.user.id
-      );
+      const character =
+        await getCharacterByUser(
+          targetId
+        );
 
+      if (!character) {
+        return res.status(404).json({
+          error:
+            '該玩家沒有角色卡'
+        });
+      }
 
       const numericFields = [
-
         'tier',
         'level',
         'agility',
@@ -2521,39 +1733,29 @@ app.patch(
         'affinity_water',
         'affinity_fire',
         'affinity_earth'
-
       ];
 
-
       const textFields = [
-
         'name',
         'faction',
         'main_class',
         'great_way_name'
-
       ];
-
 
       const updates = [];
       const values = [];
 
-
       for (
-        const field of
-        numericFields
+        const field of numericFields
       ) {
-
         if (
           req.body[field] !==
           undefined
         ) {
-
           updates.push(
             field +
-            ' = ?'
+              ' = ?'
           );
-
 
           values.push(
             Math.max(
@@ -2566,55 +1768,48 @@ app.patch(
         }
       }
 
-
       for (
-        const field of
-        textFields
+        const field of textFields
       ) {
-
         if (
           req.body[field] !==
           undefined
         ) {
-
           updates.push(
             field +
-            ' = ?'
+              ' = ?'
           );
-
 
           values.push(
             String(
               req.body[field]
             ).slice(
               0,
-              100
+              field ===
+                'great_way_name'
+                ? 100
+                : field === 'name'
+                  ? 50
+                  : 100
             )
           );
         }
       }
 
-
       const jsonFields = [
-
         'sub_classes',
         'skills',
         'equipment',
         'weapons'
-
       ];
 
-
       for (
-        const field of
-        jsonFields
+        const field of jsonFields
       ) {
-
         if (
           req.body[field] !==
           undefined
         ) {
-
           let value =
             Array.isArray(
               req.body[field]
@@ -2622,12 +1817,10 @@ app.patch(
               ? req.body[field]
               : [];
 
-
           if (
             field ===
             'sub_classes'
           ) {
-
             value =
               value.slice(
                 0,
@@ -2635,12 +1828,10 @@ app.patch(
               );
           }
 
-
           updates.push(
             field +
-            ' = ?::jsonb'
+              ' = ?::jsonb'
           );
-
 
           values.push(
             JSON.stringify(
@@ -2650,29 +1841,22 @@ app.patch(
         }
       }
 
-
       if (
         !updates.length
       ) {
-
         return res.status(400).json({
-
           error:
             '沒有可更新欄位'
-
         });
       }
-
 
       updates.push(
         'updated_at = CURRENT_TIMESTAMP'
       );
 
-
       values.push(
-        req.user.id
+        targetId
       );
-
 
       await run(
         [
@@ -2686,31 +1870,666 @@ app.patch(
         values
       );
 
-
       res.json({
+        ok: true,
 
         character:
           await getCharacterByUser(
-            req.user.id
+            targetId
           )
-
       });
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
-          '更新角色卡失敗'
-
+          '修改角色卡失敗'
       });
     }
   }
 );
 
+/* =========================================================
+   ADMIN - VIEW ROOM
+========================================================= */
+
+app.get(
+  '/api/admin/rooms/:id',
+  auth,
+  adminAuth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      const snapshot =
+        await roomSnapshot(
+          req.params.id
+        );
+
+      if (!snapshot) {
+        return res.status(404).json({
+          error:
+            '找不到房間'
+        });
+      }
+
+      res.json(
+        snapshot
+      );
+    } catch {
+      res.status(500).json({
+        error:
+          '讀取房間失敗'
+      });
+    }
+  }
+);
+
+/* =========================================================
+   ADMIN - VIEW ROOM CHARACTERS
+========================================================= */
+
+app.get(
+  '/api/admin/rooms/:id/characters',
+  auth,
+  adminAuth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      const characters =
+        await all(
+          [
+            'SELECT',
+            '  c.*,',
+            '  u.username',
+            'FROM character_cards c',
+            'JOIN character_room_bindings crb',
+            '  ON crb.character_id = c.id',
+            'JOIN users u',
+            '  ON u.id = c.user_id',
+            'WHERE crb.room_id = ?',
+            'ORDER BY c.id ASC'
+          ].join('\n'),
+          [req.params.id]
+        );
+
+      res.json({
+        characters:
+          characters.map(
+            parseCharacter
+          )
+      });
+    } catch {
+      res.status(500).json({
+        error:
+          '讀取房間角色卡失敗'
+      });
+    }
+  }
+);
+
+/* =========================================================
+   ADMIN - CLOSE ROOM
+========================================================= */
+
+app.post(
+  '/api/admin/rooms/:id/close',
+  auth,
+  adminAuth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      const room =
+        await get(
+          [
+            'SELECT *',
+            'FROM rooms',
+            'WHERE id = ?'
+          ].join('\n'),
+          [req.params.id]
+        );
+
+      if (!room) {
+        return res.status(404).json({
+          error:
+            '找不到房間'
+        });
+      }
+
+      await run(
+        [
+          'UPDATE rooms',
+          'SET',
+          '  saved = TRUE,',
+          '  status = \'closed\',',
+          '  closed_at = CURRENT_TIMESTAMP,',
+          '  updated_at = CURRENT_TIMESTAMP',
+          'WHERE id = ?'
+        ].join('\n'),
+        [req.params.id]
+      );
+
+      await addEvent(
+        req.params.id,
+        req.user.id,
+        'admin',
+        {
+          text:
+            '全站 DM 已結束本次跑團並保存房間。'
+        }
+      );
+
+      io.to(
+        'room:' +
+          req.params.id
+      ).emit(
+        'room:snapshot',
+        await roomSnapshot(
+          req.params.id
+        )
+      );
+
+      res.json({
+        ok: true,
+
+        room:
+          await roomSnapshot(
+            req.params.id
+          )
+      });
+    } catch (e) {
+      res.status(
+        e.status || 500
+      ).json({
+        error:
+          e.message ||
+          '關閉房間失敗'
+      });
+    }
+  }
+);
+
+/* =========================================================
+   ADMIN - REOPEN ROOM
+========================================================= */
+
+app.post(
+  '/api/admin/rooms/:id/reopen',
+  auth,
+  adminAuth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      const room =
+        await get(
+          [
+            'SELECT *',
+            'FROM rooms',
+            'WHERE id = ?'
+          ].join('\n'),
+          [req.params.id]
+        );
+
+      if (!room) {
+        return res.status(404).json({
+          error:
+            '找不到房間'
+        });
+      }
+
+      await run(
+        [
+          'UPDATE rooms',
+          'SET',
+          '  status = \'lobby\',',
+          '  saved = FALSE,',
+          '  closed_at = NULL,',
+          '  updated_at = CURRENT_TIMESTAMP',
+          'WHERE id = ?'
+        ].join('\n'),
+        [req.params.id]
+      );
+
+      await addEvent(
+        req.params.id,
+        req.user.id,
+        'admin',
+        {
+          text:
+            '全站 DM 重新開啟了這場跑團。'
+        }
+      );
+
+      io.to(
+        'room:' +
+          req.params.id
+      ).emit(
+        'room:snapshot',
+        await roomSnapshot(
+          req.params.id
+        )
+      );
+
+      res.json({
+        ok: true,
+
+        room:
+          await roomSnapshot(
+            req.params.id
+          )
+      });
+    } catch (e) {
+      res.status(
+        e.status || 500
+      ).json({
+        error:
+          e.message ||
+          '重新開啟房間失敗'
+      });
+    }
+  }
+);
+
+/* =========================================================
+   CHARACTER GET SELF
+========================================================= */
+
+app.get(
+  '/api/character',
+  auth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      res.json({
+        character:
+          await getCharacterByUser(
+            req.user.id
+          )
+      });
+    } catch {
+      res.status(500).json({
+        error:
+          '讀取角色卡失敗'
+      });
+    }
+  }
+);
+
+/* =========================================================
+   CHARACTER CREATE
+========================================================= */
+
+app.post(
+  '/api/character',
+  auth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      const exists =
+        await get(
+          [
+            'SELECT id',
+            'FROM character_cards',
+            'WHERE user_id = ?'
+          ].join('\n'),
+          [req.user.id]
+        );
+
+      if (exists) {
+        return res.status(409).json({
+          error:
+            '你已經有角色卡，每個玩家只能擁有一張角色卡'
+        });
+      }
+
+      const name =
+        String(
+          req.body.name ||
+            '未命名角色'
+        )
+          .trim()
+          .slice(
+            0,
+            50
+          );
+
+      const faction =
+        req.body.faction ===
+        '西國'
+          ? '西國'
+          : '東國';
+
+      const mainClass =
+        String(
+          req.body.main_class ||
+            '未設定'
+        )
+          .trim()
+          .slice(
+            0,
+            50
+          );
+
+      const subClasses =
+        Array.isArray(
+          req.body.sub_classes
+        )
+          ? req.body.sub_classes.slice(
+              0,
+              3
+            )
+          : [];
+
+      const skills =
+        Array.isArray(
+          req.body.skills
+        )
+          ? req.body.skills
+          : [];
+
+      const equipment =
+        Array.isArray(
+          req.body.equipment
+        )
+          ? req.body.equipment
+          : [];
+
+      const weapons =
+        Array.isArray(
+          req.body.weapons
+        )
+          ? req.body.weapons
+          : [];
+
+      const luck =
+        Math.max(
+          0,
+          Number(
+            req.body.luck ||
+              10
+          ) || 10
+        );
+
+      await run(
+        [
+          'INSERT INTO character_cards(',
+          '  user_id,',
+          '  name,',
+          '  faction,',
+          '  tier,',
+          '  level,',
+          '  main_class,',
+          '  sub_classes,',
+          '  luck,',
+          '  attribute_points,',
+          '  skills,',
+          '  equipment,',
+          '  weapons,',
+          '  affinity_light,',
+          '  affinity_dark,',
+          '  affinity_metal,',
+          '  affinity_wood,',
+          '  affinity_water,',
+          '  affinity_fire,',
+          '  affinity_earth',
+          ')',
+          'VALUES(',
+          '  ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?,',
+          '  ?::jsonb, ?::jsonb, ?::jsonb,',
+          '  ?, ?, ?, ?, ?, ?, ?',
+          ')',
+          'RETURNING id'
+        ].join('\n'),
+        [
+          req.user.id,
+          name,
+          faction,
+          1,
+          1,
+          mainClass,
+          JSON.stringify(
+            subClasses
+          ),
+          luck,
+          50,
+          JSON.stringify(
+            skills
+          ),
+          JSON.stringify(
+            equipment
+          ),
+          JSON.stringify(
+            weapons
+          ),
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      );
+
+      res.json({
+        character:
+          await getCharacterByUser(
+            req.user.id
+          )
+      });
+    } catch (e) {
+      res.status(
+        e.code ===
+          '23505'
+          ? 409
+          : 500
+      ).json({
+        error:
+          e.code ===
+          '23505'
+            ? '你已經有角色卡'
+            : '建立角色卡失敗'
+      });
+    }
+  }
+);
+
+/* =========================================================
+   CHARACTER UPDATE SELF
+========================================================= */
+
+app.patch(
+  '/api/character',
+  auth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      await requireCharacter(
+        req.user.id
+      );
+
+      const numericFields = [
+        'tier',
+        'level',
+        'agility',
+        'strength',
+        'constitution',
+        'spirit',
+        'great_way',
+        'luck',
+        'attribute_points',
+        'experience',
+        'skill_points',
+        'affinity_light',
+        'affinity_dark',
+        'affinity_metal',
+        'affinity_wood',
+        'affinity_water',
+        'affinity_fire',
+        'affinity_earth'
+      ];
+
+      const textFields = [
+        'name',
+        'faction',
+        'main_class',
+        'great_way_name'
+      ];
+
+      const updates = [];
+      const values = [];
+
+      for (
+        const field of numericFields
+      ) {
+        if (
+          req.body[field] !==
+          undefined
+        ) {
+          updates.push(
+            field +
+              ' = ?'
+          );
+
+          values.push(
+            Math.max(
+              0,
+              Number(
+                req.body[field]
+              ) || 0
+            )
+          );
+        }
+      }
+
+      for (
+        const field of textFields
+      ) {
+        if (
+          req.body[field] !==
+          undefined
+        ) {
+          updates.push(
+            field +
+              ' = ?'
+          );
+
+          values.push(
+            String(
+              req.body[field]
+            ).slice(
+              0,
+              100
+            )
+          );
+        }
+      }
+
+      const jsonFields = [
+        'sub_classes',
+        'skills',
+        'equipment',
+        'weapons'
+      ];
+
+      for (
+        const field of jsonFields
+      ) {
+        if (
+          req.body[field] !==
+          undefined
+        ) {
+          let value =
+            Array.isArray(
+              req.body[field]
+            )
+              ? req.body[field]
+              : [];
+
+          if (
+            field ===
+            'sub_classes'
+          ) {
+            value =
+              value.slice(
+                0,
+                3
+              );
+          }
+
+          updates.push(
+            field +
+              ' = ?::jsonb'
+          );
+
+          values.push(
+            JSON.stringify(
+              value
+            )
+          );
+        }
+      }
+
+      if (
+        !updates.length
+      ) {
+        return res.status(400).json({
+          error:
+            '沒有可更新欄位'
+        });
+      }
+
+      updates.push(
+        'updated_at = CURRENT_TIMESTAMP'
+      );
+
+      values.push(
+        req.user.id
+      );
+
+      await run(
+        [
+          'UPDATE character_cards',
+          'SET ' +
+            updates.join(
+              ', '
+            ),
+          'WHERE user_id = ?'
+        ].join('\n'),
+        values
+      );
+
+      res.json({
+        character:
+          await getCharacterByUser(
+            req.user.id
+          )
+      });
+    } catch (e) {
+      res.status(
+        e.status || 500
+      ).json({
+        error:
+          e.message ||
+          '更新角色卡失敗'
+      });
+    }
+  }
+);
 
 /* =========================================================
    ADD SKILL
@@ -2723,22 +2542,18 @@ app.post(
     req,
     res
   ) {
-
     try {
-
       const character =
         await requireCharacter(
           req.user.id
         );
 
-
       const skill = {
-
         id:
           String(
             req.body.id ||
               'skill_' +
-              Date.now()
+                Date.now()
           ).slice(
             0,
             50
@@ -2792,9 +2607,7 @@ app.post(
         data:
           req.body.data ||
           {}
-
       };
-
 
       const skills =
         Array.isArray(
@@ -2803,11 +2616,9 @@ app.post(
           ? character.skills
           : [];
 
-
       skills.push(
         skill
       );
-
 
       await run(
         [
@@ -2825,48 +2636,415 @@ app.post(
         ]
       );
 
-
       res.json({
-
         character:
           await getCharacterByUser(
             req.user.id
           )
-
       });
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '新增技能失敗'
-
       });
     }
   }
 );
 
+/* =========================================================
+   GLOBAL CHARACTER LIST
+ *
+ * 登入玩家可以看到自己的角色。
+ * 全站 DM 可以看到所有玩家角色。
+========================================================= */
+
+app.get(
+  '/api/characters',
+  auth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      const user =
+        await get(
+          [
+            'SELECT id, is_admin',
+            'FROM users',
+            'WHERE id = ?'
+          ].join('\n'),
+          [req.user.id]
+        );
+
+      if (
+        user &&
+        user.is_admin
+      ) {
+        const rows =
+          await all(
+            [
+              'SELECT',
+              '  c.*,',
+              '  u.username',
+              'FROM character_cards c',
+              'JOIN users u',
+              '  ON u.id = c.user_id',
+              'ORDER BY c.id ASC'
+            ].join('\n')
+          );
+
+        return res.json({
+          characters:
+            rows.map(
+              parseCharacter
+            )
+        });
+      }
+
+      const own =
+        await getCharacterByUser(
+          req.user.id
+        );
+
+      res.json({
+        characters:
+          own
+            ? [own]
+            : []
+      });
+    } catch {
+      res.status(500).json({
+        error:
+          '讀取角色列表失敗'
+      });
+    }
+  }
+);
+
+/* =========================================================
+   CHARACTER BY USER
+ *
+ * 全站 DM：
+ *   可從房間外查看任何玩家。
+ *
+ * 玩家：
+ *   只能查看自己。
+ *
+ * 房間 DM：
+ *   可查看自己房間中的玩家。
+========================================================= */
+
+app.get(
+  '/api/characters/:userId',
+  auth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      const targetId =
+        Number(
+          req.params.userId
+        );
+
+      const permission =
+        await canManageCharacter(
+          req.user.id,
+          targetId
+        );
+
+      if (
+        !permission.allowed
+      ) {
+        return res.status(403).json({
+          error:
+            '沒有查看此角色卡的權限'
+        });
+      }
+
+      const user =
+        await get(
+          [
+            'SELECT',
+            '  id,',
+            '  username,',
+            '  is_admin,',
+            '  created_at',
+            'FROM users',
+            'WHERE id = ?'
+          ].join('\n'),
+          [targetId]
+        );
+
+      if (!user) {
+        return res.status(404).json({
+          error:
+            '找不到玩家'
+        });
+      }
+
+      const character =
+        await getCharacterByUser(
+          targetId
+        );
+
+      res.json({
+        user,
+        character,
+        permission:
+          permission.reason
+      });
+    } catch {
+      res.status(500).json({
+        error:
+          '讀取角色卡失敗'
+      });
+    }
+  }
+);
+
+/* =========================================================
+   CHARACTER UPDATE BY USER
+ *
+ * 全站 DM：
+ *   可從房間外修改任何玩家。
+ *
+ * 玩家：
+ *   可修改自己。
+ *
+ * 房間 DM：
+ *   可修改自己房間中的玩家。
+========================================================= */
+
+app.patch(
+  '/api/characters/:userId',
+  auth,
+  async function (
+    req,
+    res
+  ) {
+    try {
+      const targetId =
+        Number(
+          req.params.userId
+        );
+
+      const permission =
+        await canManageCharacter(
+          req.user.id,
+          targetId
+        );
+
+      if (
+        !permission.allowed
+      ) {
+        return res.status(403).json({
+          error:
+            '沒有修改此角色卡的權限'
+        });
+      }
+
+      const character =
+        await getCharacterByUser(
+          targetId
+        );
+
+      if (!character) {
+        return res.status(404).json({
+          error:
+            '該玩家沒有角色卡'
+        });
+      }
+
+      const numericFields = [
+        'tier',
+        'level',
+        'agility',
+        'strength',
+        'constitution',
+        'spirit',
+        'great_way',
+        'luck',
+        'attribute_points',
+        'experience',
+        'skill_points',
+        'affinity_light',
+        'affinity_dark',
+        'affinity_metal',
+        'affinity_wood',
+        'affinity_water',
+        'affinity_fire',
+        'affinity_earth'
+      ];
+
+      const textFields = [
+        'name',
+        'faction',
+        'main_class',
+        'great_way_name'
+      ];
+
+      const updates = [];
+      const values = [];
+
+      for (
+        const field of numericFields
+      ) {
+        if (
+          req.body[field] !==
+          undefined
+        ) {
+          updates.push(
+            field +
+              ' = ?'
+          );
+
+          values.push(
+            Math.max(
+              0,
+              Number(
+                req.body[field]
+              ) || 0
+            )
+          );
+        }
+      }
+
+      for (
+        const field of textFields
+      ) {
+        if (
+          req.body[field] !==
+          undefined
+        ) {
+          updates.push(
+            field +
+              ' = ?'
+          );
+
+          values.push(
+            String(
+              req.body[field]
+            ).slice(
+              0,
+              field ===
+                'name'
+                ? 50
+                : 100
+            )
+          );
+        }
+      }
+
+      const jsonFields = [
+        'sub_classes',
+        'skills',
+        'equipment',
+        'weapons'
+      ];
+
+      for (
+        const field of jsonFields
+      ) {
+        if (
+          req.body[field] !==
+          undefined
+        ) {
+          let value =
+            Array.isArray(
+              req.body[field]
+            )
+              ? req.body[field]
+              : [];
+
+          if (
+            field ===
+            'sub_classes'
+          ) {
+            value =
+              value.slice(
+                0,
+                3
+              );
+          }
+
+          updates.push(
+            field +
+              ' = ?::jsonb'
+          );
+
+          values.push(
+            JSON.stringify(
+              value
+            )
+          );
+        }
+      }
+
+      if (
+        !updates.length
+      ) {
+        return res.status(400).json({
+          error:
+            '沒有可更新欄位'
+        });
+      }
+
+      updates.push(
+        'updated_at = CURRENT_TIMESTAMP'
+      );
+
+      values.push(
+        targetId
+      );
+
+      await run(
+        [
+          'UPDATE character_cards',
+          'SET ' +
+            updates.join(
+              ', '
+            ),
+          'WHERE user_id = ?'
+        ].join('\n'),
+        values
+      );
+
+      res.json({
+        ok: true,
+
+        character:
+          await getCharacterByUser(
+            targetId
+          )
+      });
+    } catch (e) {
+      res.status(
+        e.status || 500
+      ).json({
+        error:
+          e.message ||
+          '修改角色卡失敗'
+      });
+    }
+  }
+);
 
 /* =========================================================
    CREATE ROOM
-   只有全站 DM 可以建立房間
 ========================================================= */
 
 app.post(
   '/api/rooms',
   auth,
-  adminAuth,
   async function (
     req,
     res
   ) {
-
     try {
-
       const name =
         String(
           req.body.name ||
@@ -2879,19 +3057,13 @@ app.post(
           ) ||
         '未命名跑團';
 
+      const character =
+        await requireCharacter(
+          req.user.id
+        );
 
       const code =
         await uniqueCode();
-
-
-      /*
-       * 重要：
-       *
-       * 這裡完全不 requireCharacter。
-       *
-       * DM 是主持人，不是玩家。
-       */
-
 
       const result =
         await run(
@@ -2913,12 +3085,6 @@ app.post(
           ]
         );
 
-
-      /*
-       * DM 可以作為 GM 出現在房間，
-       * 但 character_id 可以是 NULL。
-       */
-
       await run(
         [
           'INSERT INTO room_members(',
@@ -2931,15 +3097,34 @@ app.post(
           '  spirit,',
           '  max_spirit',
           ')',
-          'VALUES(?, ?, \'gm\', ?, 0, 0, 0, 0)'
+          'VALUES(?, ?, \'gm\', ?, ?, ?, ?, ?)'
         ].join('\n'),
         [
           result.id,
           req.user.id,
-          req.user.username
+          req.user.username,
+          character.max_hp,
+          character.max_hp,
+          character.spirit,
+          character.spirit
         ]
       );
 
+      await run(
+        [
+          'INSERT INTO character_room_bindings(',
+          '  room_id,',
+          '  character_id,',
+          '  user_id',
+          ')',
+          'VALUES(?, ?, ?)'
+        ].join('\n'),
+        [
+          result.id,
+          character.id,
+          req.user.id
+        ]
+      );
 
       await addEvent(
         result.id,
@@ -2954,32 +3139,25 @@ app.post(
         }
       );
 
-
       res.json(
         await roomSnapshot(
           result.id
         )
       );
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '建立房間失敗'
-
       });
     }
   }
 );
 
-
 /* =========================================================
    JOIN ROOM
-   玩家加入房間才需要角色卡
 ========================================================= */
 
 app.post(
@@ -2989,9 +3167,7 @@ app.post(
     req,
     res
   ) {
-
     try {
-
       const code =
         String(
           req.body.code ||
@@ -3000,7 +3176,6 @@ app.post(
           .trim()
           .toUpperCase();
 
-
       const room =
         await get(
           [
@@ -3008,78 +3183,30 @@ app.post(
             'FROM rooms',
             'WHERE code = ?'
           ].join('\n'),
-          [
-            code
-          ]
+          [code]
         );
 
-
       if (!room) {
-
         return res.status(404).json({
-
           error:
             '找不到房間'
-
         });
       }
-
 
       if (
         room.status ===
         'closed'
       ) {
-
         return res.status(400).json({
-
           error:
             '這個房間目前已結束'
-
         });
       }
-
-
-      /*
-       * DM 不需要透過 JOIN ROOM 成為玩家。
-       */
-
-      const currentUser =
-        await get(
-          [
-            'SELECT',
-            '  id,',
-            '  is_admin',
-            'FROM users',
-            'WHERE id = ?'
-          ].join('\n'),
-          [
-            req.user.id
-          ]
-        );
-
-
-      if (
-        currentUser &&
-        currentUser.is_admin
-      ) {
-
-        return res.json(
-          await roomSnapshot(
-            room.id
-          )
-        );
-      }
-
-
-      /*
-       * 一般玩家加入房間才需要角色卡。
-       */
 
       const character =
         await requireCharacter(
           req.user.id
         );
-
 
       const existing =
         await get(
@@ -3095,9 +3222,7 @@ app.post(
           ]
         );
 
-
       if (!existing) {
-
         await run(
           [
             'INSERT INTO room_members(',
@@ -3123,7 +3248,6 @@ app.post(
           ]
         );
 
-
         await run(
           [
             'INSERT INTO character_room_bindings(',
@@ -3141,7 +3265,6 @@ app.post(
           ]
         );
 
-
         await addEvent(
           room.id,
           req.user.id,
@@ -3154,31 +3277,25 @@ app.post(
         );
       }
 
-
       res.json(
         await roomSnapshot(
           room.id
         )
       );
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '加入房間失敗'
-
       });
     }
   }
 );
 
-
 /* =========================================================
-   PLAYER ROOM LIST
+   ROOM LIST
 ========================================================= */
 
 app.get(
@@ -3188,101 +3305,40 @@ app.get(
     req,
     res
   ) {
-
     try {
-
-      /*
-       * DM 可以看到全站所有房間。
-       *
-       * 玩家只能看到自己加入過的房間。
-       */
-
-      const user =
-        await get(
+      const rooms =
+        await all(
           [
-            'SELECT id, is_admin',
-            'FROM users',
-            'WHERE id = ?'
+            'SELECT DISTINCT',
+            '  r.id,',
+            '  r.code,',
+            '  r.name,',
+            '  r.owner_id,',
+            '  r.status,',
+            '  r.round,',
+            '  r.saved,',
+            '  r.created_at,',
+            '  r.updated_at',
+            'FROM rooms r',
+            'JOIN room_members rm',
+            '  ON rm.room_id = r.id',
+            'WHERE rm.user_id = ?',
+            'ORDER BY r.updated_at DESC'
           ].join('\n'),
-          [
-            req.user.id
-          ]
+          [req.user.id]
         );
-
-
-      let rooms;
-
-
-      if (
-        user &&
-        user.is_admin
-      ) {
-
-        rooms =
-          await all(
-            [
-              'SELECT',
-              '  r.id,',
-              '  r.code,',
-              '  r.name,',
-              '  r.owner_id,',
-              '  owner.username AS owner_username,',
-              '  r.status,',
-              '  r.round,',
-              '  r.saved,',
-              '  r.created_at,',
-              '  r.updated_at',
-              'FROM rooms r',
-              'JOIN users owner',
-              '  ON owner.id = r.owner_id',
-              'ORDER BY r.updated_at DESC'
-            ].join('\n')
-          );
-
-      } else {
-
-        rooms =
-          await all(
-            [
-              'SELECT DISTINCT',
-              '  r.id,',
-              '  r.code,',
-              '  r.name,',
-              '  r.owner_id,',
-              '  r.status,',
-              '  r.round,',
-              '  r.saved,',
-              '  r.created_at,',
-              '  r.updated_at',
-              'FROM rooms r',
-              'JOIN room_members rm',
-              '  ON rm.room_id = r.id',
-              'WHERE rm.user_id = ?',
-              'ORDER BY r.updated_at DESC'
-            ].join('\n'),
-            [
-              req.user.id
-            ]
-          );
-      }
-
 
       res.json({
         rooms
       });
-
     } catch {
-
       res.status(500).json({
-
         error:
           '讀取房間列表失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    ROOM SNAPSHOT
@@ -3295,71 +3351,52 @@ app.get(
     req,
     res
   ) {
-
     try {
-
       const user =
         await get(
           [
-            'SELECT',
-            '  id,',
-            '  is_admin',
+            'SELECT id, is_admin',
             'FROM users',
             'WHERE id = ?'
           ].join('\n'),
-          [
-            req.user.id
-          ]
+          [req.user.id]
         );
-
 
       if (
         !user?.is_admin
       ) {
-
         await requireRoomMember(
           req.user.id,
           req.params.id
         );
       }
 
-
       const snapshot =
         await roomSnapshot(
           req.params.id
         );
 
-
       if (!snapshot) {
-
         return res.status(404).json({
-
           error:
             '找不到房間'
-
         });
       }
-
 
       res.json(
         snapshot
       );
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '讀取房間失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    ROOM CHARACTERS
@@ -3372,14 +3409,11 @@ app.get(
     req,
     res
   ) {
-
     try {
-
       await requireRoomOwnerOrAdmin(
         req.user.id,
         req.params.id
       );
-
 
       const characters =
         await all(
@@ -3395,36 +3429,26 @@ app.get(
             'WHERE crb.room_id = ?',
             'ORDER BY c.id ASC'
           ].join('\n'),
-          [
-            req.params.id
-          ]
+          [req.params.id]
         );
 
-
       res.json({
-
         characters:
           characters.map(
             parseCharacter
           )
-
       });
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '讀取角色卡失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    START ROOM
@@ -3437,14 +3461,11 @@ app.post(
     req,
     res
   ) {
-
     try {
-
       await requireRoomOwnerOrAdmin(
         req.user.id,
         req.params.id
       );
-
 
       const current =
         await get(
@@ -3456,11 +3477,8 @@ app.post(
             'ORDER BY joined_at ASC',
             'LIMIT 1'
           ].join('\n'),
-          [
-            req.params.id
-          ]
+          [req.params.id]
         );
-
 
       await run(
         [
@@ -3477,11 +3495,9 @@ app.post(
           current
             ? current.user_id
             : null,
-
           req.params.id
         ]
       );
-
 
       await addEvent(
         req.params.id,
@@ -3493,41 +3509,33 @@ app.post(
         }
       );
 
-
       const snapshot =
         await roomSnapshot(
           req.params.id
         );
 
-
       io.to(
         'room:' +
-        req.params.id
+          req.params.id
       ).emit(
         'room:snapshot',
         snapshot
       );
 
-
       res.json(
         snapshot
       );
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '無法開始跑團'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    NEXT TURN
@@ -3540,14 +3548,11 @@ app.post(
     req,
     res
   ) {
-
     try {
-
       await requireRoomOwnerOrAdmin(
         req.user.id,
         req.params.id
       );
-
 
       const room =
         await get(
@@ -3556,38 +3561,18 @@ app.post(
             'FROM rooms',
             'WHERE id = ?'
           ].join('\n'),
-          [
-            req.params.id
-          ]
+          [req.params.id]
         );
-
-
-      if (
-        !room
-      ) {
-
-        return res.status(404).json({
-
-          error:
-            '找不到房間'
-
-        });
-      }
-
 
       if (
         room.status !==
         'active'
       ) {
-
         return res.status(400).json({
-
           error:
             '跑團尚未開始'
-
         });
       }
-
 
       const members =
         await all(
@@ -3598,32 +3583,25 @@ app.post(
             'AND role = \'player\'',
             'ORDER BY joined_at ASC'
           ].join('\n'),
-          [
-            req.params.id
-          ]
+          [req.params.id]
         );
-
 
       if (
         !members.length
       ) {
-
         return res.status(400).json({
-
           error:
             '沒有玩家'
-
         });
       }
-
 
       const idx =
         Math.max(
           0,
-
           members.findIndex(
-            function (m) {
-
+            function (
+              m
+            ) {
               return (
                 String(
                   m.user_id
@@ -3636,22 +3614,19 @@ app.post(
           )
         );
 
-
       const next =
         members[
           (
             idx + 1
           ) %
-          members.length
+            members.length
         ];
-
 
       const nextRound =
         idx + 1 >=
         members.length
           ? room.round + 1
           : room.round;
-
 
       await run(
         [
@@ -3669,7 +3644,6 @@ app.post(
         ]
       );
 
-
       await addEvent(
         req.params.id,
         req.user.id,
@@ -3683,41 +3657,33 @@ app.post(
         }
       );
 
-
       const snapshot =
         await roomSnapshot(
           req.params.id
         );
 
-
       io.to(
         'room:' +
-        req.params.id
+          req.params.id
       ).emit(
         'room:snapshot',
         snapshot
       );
 
-
       res.json(
         snapshot
       );
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '切換回合失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    SAVE ROOM
@@ -3730,14 +3696,11 @@ app.post(
     req,
     res
   ) {
-
     try {
-
       await requireRoomOwnerOrAdmin(
         req.user.id,
         req.params.id
       );
-
 
       await run(
         [
@@ -3748,11 +3711,8 @@ app.post(
           '  updated_at = CURRENT_TIMESTAMP',
           'WHERE id = ?'
         ].join('\n'),
-        [
-          req.params.id
-        ]
+        [req.params.id]
       );
-
 
       await addEvent(
         req.params.id,
@@ -3764,44 +3724,36 @@ app.post(
         }
       );
 
-
       const snapshot =
         await roomSnapshot(
           req.params.id
         );
 
-
       io.to(
         'room:' +
-        req.params.id
+          req.params.id
       ).emit(
         'room:snapshot',
         snapshot
       );
 
-
       res.json(
         snapshot
       );
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '存檔失敗'
-
       });
     }
   }
 );
 
-
 /* =========================================================
-   CLOSE ROOM
+   DM EXIT / CLOSE ROOM
 ========================================================= */
 
 app.post(
@@ -3811,14 +3763,11 @@ app.post(
     req,
     res
   ) {
-
     try {
-
       await requireRoomOwnerOrAdmin(
         req.user.id,
         req.params.id
       );
-
 
       await run(
         [
@@ -3830,11 +3779,8 @@ app.post(
           '  updated_at = CURRENT_TIMESTAMP',
           'WHERE id = ?'
         ].join('\n'),
-        [
-          req.params.id
-        ]
+        [req.params.id]
       );
-
 
       await addEvent(
         req.params.id,
@@ -3846,50 +3792,38 @@ app.post(
         }
       );
 
-
       const snapshot =
         await roomSnapshot(
           req.params.id
         );
 
-
       io.to(
         'room:' +
-        req.params.id
+          req.params.id
       ).emit(
         'room:snapshot',
         snapshot
       );
 
-
       res.json({
+        ok: true,
 
-        ok:
-          true,
-
-        saved:
-          true,
+        saved: true,
 
         message:
           '房間已存檔並結束'
-
       });
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '結束房間失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    REOPEN ROOM
@@ -3902,14 +3836,11 @@ app.post(
     req,
     res
   ) {
-
     try {
-
       await requireRoomOwnerOrAdmin(
         req.user.id,
         req.params.id
       );
-
 
       await run(
         [
@@ -3921,11 +3852,8 @@ app.post(
           '  updated_at = CURRENT_TIMESTAMP',
           'WHERE id = ?'
         ].join('\n'),
-        [
-          req.params.id
-        ]
+        [req.params.id]
       );
-
 
       await addEvent(
         req.params.id,
@@ -3937,41 +3865,33 @@ app.post(
         }
       );
 
-
       const snapshot =
         await roomSnapshot(
           req.params.id
         );
 
-
       io.to(
         'room:' +
-        req.params.id
+          req.params.id
       ).emit(
         'room:snapshot',
         snapshot
       );
 
-
       res.json(
         snapshot
       );
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '重新開啟房間失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    UPDATE ROOM MEMBER
@@ -3984,57 +3904,39 @@ app.patch(
     req,
     res
   ) {
-
     try {
+      await requireRoomMember(
+        req.user.id,
+        req.params.id
+      );
+
+      const target =
+        Number(
+          req.params.userId
+        );
 
       const room =
         await get(
           [
-            'SELECT',
-            '  owner_id',
+            'SELECT owner_id',
             'FROM rooms',
             'WHERE id = ?'
           ].join('\n'),
-          [
-            req.params.id
-          ]
+          [req.params.id]
         );
-
-
-      if (!room) {
-
-        return res.status(404).json({
-
-          error:
-            '找不到房間'
-
-        });
-      }
-
 
       const currentUser =
         await get(
           [
-            'SELECT',
-            '  id,',
-            '  is_admin',
+            'SELECT is_admin',
             'FROM users',
             'WHERE id = ?'
           ].join('\n'),
-          [
-            req.user.id
-          ]
+          [req.user.id]
         );
-
-
-      const isAdmin =
-        Boolean(
-          currentUser &&
-          currentUser.is_admin
-        );
-
 
       const isOwner =
+        room &&
         String(
           room.owner_id
         ) ===
@@ -4042,114 +3944,84 @@ app.patch(
           req.user.id
         );
 
-
-      const target =
-        Number(
-          req.params.userId
+      const isAdmin =
+        Boolean(
+          currentUser &&
+          currentUser.is_admin
         );
-
 
       const isSelf =
         String(
           req.user.id
         ) ===
-        String(
-          target
-        );
-
-
-      /*
-       * DM、房間 owner、本人可以更新。
-       */
+        String(target);
 
       if (
         !isSelf &&
         !isOwner &&
         !isAdmin
       ) {
-
         return res.status(403).json({
-
           error:
             '沒有權限'
-
         });
       }
 
-
       const fields = [
-
         'hp',
         'max_hp',
         'spirit',
         'max_spirit',
         'display_name'
-
       ];
-
 
       const updates = [];
       const values = [];
 
-
       for (
-        const field of
-        fields
+        const field of fields
       ) {
-
         if (
           req.body[field] !==
           undefined
         ) {
-
           updates.push(
             field +
-            ' = ?'
+              ' = ?'
           );
 
-
           values.push(
-
             field ===
-            'display_name'
-
+              'display_name'
               ? String(
                   req.body[field]
                 ).slice(
                   0,
                   30
                 )
-
               : Math.max(
                   0,
                   Number(
                     req.body[field]
                   ) || 0
                 )
-
           );
         }
       }
 
-
       if (
         !updates.length
       ) {
-
         return res.status(400).json({
-
           error:
             '沒有可更新欄位'
-
         });
       }
-
 
       values.push(
         req.params.id,
         target
       );
-
 
       await run(
         [
@@ -4164,53 +4036,45 @@ app.patch(
         values
       );
 
-
       await addEvent(
         req.params.id,
         req.user.id,
         'character',
         {
           target,
+
           changes:
             req.body
         }
       );
-
 
       const snapshot =
         await roomSnapshot(
           req.params.id
         );
 
-
       io.to(
         'room:' +
-        req.params.id
+          req.params.id
       ).emit(
         'room:snapshot',
         snapshot
       );
 
-
       res.json(
         snapshot
       );
-
     } catch (e) {
-
       res.status(
         e.status || 500
       ).json({
-
         error:
           e.message ||
           '更新角色失敗'
-
       });
     }
   }
 );
-
 
 /* =========================================================
    HTTP SERVER
@@ -4221,7 +4085,6 @@ const server =
     app
   );
 
-
 /* =========================================================
    SOCKET.IO
 ========================================================= */
@@ -4231,20 +4094,13 @@ const io =
     server,
     {
       cors: {
-
-        origin:
-          true,
-
-        credentials:
-          false
-
+        origin: true,
+        credentials: false
       },
 
       transports: [
-
         'websocket',
         'polling'
-
       ],
 
       pingInterval:
@@ -4258,23 +4114,12 @@ const io =
     }
   );
 
-
 io.use(
   socketAuth
 );
 
-
-/*
- * roomId -> Set(userId)
- *
- * 只記錄「在線狀態」。
- *
- * 角色卡完全不依賴這個 Map。
- */
-
 const onlineByRoom =
   new Map();
-
 
 /* =========================================================
    SOCKET CONNECTION
@@ -4286,38 +4131,29 @@ io.on(
     socket
   ) {
 
-
-    /* =====================================================
+    /* ================================================
        ENTER ROOM
-    ===================================================== */
+    ================================================= */
 
     socket.on(
       'room:enter',
       async function (
         data
       ) {
-
         try {
-
           const roomId =
             data &&
             data.roomId;
 
-
           const user =
             await get(
               [
-                'SELECT',
-                '  id,',
-                '  is_admin',
+                'SELECT id, is_admin',
                 'FROM users',
                 'WHERE id = ?'
               ].join('\n'),
-              [
-                socket.user.id
-              ]
+              [socket.user.id]
             );
-
 
           const isAdmin =
             Boolean(
@@ -4325,16 +4161,12 @@ io.on(
               user.is_admin
             );
 
-
           if (!isAdmin) {
-
             await requireRoomMember(
               socket.user.id,
               roomId
             );
-
           } else {
-
             const exists =
               await get(
                 [
@@ -4342,52 +4174,41 @@ io.on(
                   'FROM rooms',
                   'WHERE id = ?'
                 ].join('\n'),
-                [
-                  roomId
-                ]
+                [roomId]
               );
 
-
             if (!exists) {
-
               throw new Error(
                 '找不到房間'
               );
             }
           }
 
-
           socket.join(
             'room:' +
-            roomId
+              roomId
           );
-
 
           if (
             !onlineByRoom.has(
               roomId
             )
           ) {
-
             onlineByRoom.set(
               roomId,
               new Set()
             );
           }
 
-
           onlineByRoom
-            .get(
-              roomId
-            )
+            .get(roomId)
             .add(
               socket.user.id
             );
 
-
           io.to(
             'room:' +
-            roomId
+              roomId
           ).emit(
             'presence',
             {
@@ -4400,16 +4221,13 @@ io.on(
             }
           );
 
-
           socket.emit(
             'room:snapshot',
             await roomSnapshot(
               roomId
             )
           );
-
         } catch (e) {
-
           socket.emit(
             'error:message',
             e.message ||
@@ -4419,43 +4237,33 @@ io.on(
       }
     );
 
-
-    /* =====================================================
+    /* ================================================
        CHAT
-    ===================================================== */
+    ================================================= */
 
     socket.on(
       'chat:send',
       async function (
         data
       ) {
-
         try {
-
           const roomId =
             data &&
             data.roomId;
-
 
           const text =
             data &&
             data.text;
 
-
           const user =
             await get(
               [
-                'SELECT',
-                '  id,',
-                '  is_admin',
+                'SELECT id, is_admin',
                 'FROM users',
                 'WHERE id = ?'
               ].join('\n'),
-              [
-                socket.user.id
-              ]
+              [socket.user.id]
             );
-
 
           const isAdmin =
             Boolean(
@@ -4463,15 +4271,12 @@ io.on(
               user.is_admin
             );
 
-
           if (!isAdmin) {
-
             await requireRoomMember(
               socket.user.id,
               roomId
             );
           }
-
 
           const safe =
             String(
@@ -4483,11 +4288,9 @@ io.on(
                 1000
               );
 
-
           if (!safe) {
             return;
           }
-
 
           await addEvent(
             roomId,
@@ -4499,19 +4302,16 @@ io.on(
             }
           );
 
-
           io.to(
             'room:' +
-            roomId
+              roomId
           ).emit(
             'room:snapshot',
             await roomSnapshot(
               roomId
             )
           );
-
         } catch (e) {
-
           socket.emit(
             'error:message',
             e.message ||
@@ -4521,23 +4321,19 @@ io.on(
       }
     );
 
-
-    /* =====================================================
+    /* ================================================
        DICE
-    ===================================================== */
+    ================================================= */
 
     socket.on(
       'dice:roll',
       async function (
         data
       ) {
-
         try {
-
           const roomId =
             data &&
             data.roomId;
-
 
           const notation =
             data &&
@@ -4545,28 +4341,21 @@ io.on(
               ? data.notation
               : '1d20';
 
-
           const label =
             data &&
             data.label
               ? data.label
               : '擲骰';
 
-
           const user =
             await get(
               [
-                'SELECT',
-                '  id,',
-                '  is_admin',
+                'SELECT id, is_admin',
                 'FROM users',
                 'WHERE id = ?'
               ].join('\n'),
-              [
-                socket.user.id
-              ]
+              [socket.user.id]
             );
-
 
           const isAdmin =
             Boolean(
@@ -4574,15 +4363,12 @@ io.on(
               user.is_admin
             );
 
-
           if (!isAdmin) {
-
             await requireRoomMember(
               socket.user.id,
               roomId
             );
           }
-
 
           const m =
             String(
@@ -4593,15 +4379,12 @@ io.on(
                 /^(\d{1,2})d(\d{1,4})([+-]\d{1,4})?$/i
               );
 
-
           if (!m) {
-
             return socket.emit(
               'error:message',
               '骰式格式例如 1d20 或 2d6+3'
             );
           }
-
 
           const count =
             Math.min(
@@ -4611,7 +4394,6 @@ io.on(
               )
             );
 
-
           const sides =
             Math.min(
               1000,
@@ -4620,13 +4402,11 @@ io.on(
               )
             );
 
-
           const mod =
             Number(
               m[3] ||
                 0
             );
-
 
           const rolls =
             Array.from(
@@ -4635,17 +4415,15 @@ io.on(
                   count
               },
               function () {
-
                 return (
                   1 +
                   Math.floor(
                     Math.random() *
-                    sides
+                      sides
                   )
                 );
               }
             );
-
 
           const total =
             rolls.reduce(
@@ -4653,21 +4431,17 @@ io.on(
                 a,
                 b
               ) {
-
                 return a + b;
-
               },
               0
             ) +
             mod;
-
 
           await addEvent(
             roomId,
             socket.user.id,
             'dice',
             {
-
               notation,
 
               label:
@@ -4684,23 +4458,19 @@ io.on(
                 mod,
 
               total
-
             }
           );
 
-
           io.to(
             'room:' +
-            roomId
+              roomId
           ).emit(
             'room:snapshot',
             await roomSnapshot(
               roomId
             )
           );
-
         } catch (e) {
-
           socket.emit(
             'error:message',
             e.message ||
@@ -4710,50 +4480,40 @@ io.on(
       }
     );
 
-
-    /* =====================================================
+    /* ================================================
        DISCONNECT
-    ===================================================== */
+    ================================================= */
 
     socket.on(
       'disconnect',
       function () {
-
         for (
           const [
             roomId,
             set
-          ]
-          of
-          onlineByRoom.entries()
+          ] of onlineByRoom.entries()
         ) {
-
           if (
             set.delete(
               socket.user.id
             )
           ) {
-
             io.to(
               'room:' +
-              roomId
+                roomId
             ).emit(
               'presence',
               {
-
                 online:
                   Array.from(
                     set
                   )
-
               }
             );
-
 
             if (
               !set.size
             ) {
-
               onlineByRoom.delete(
                 roomId
               );
@@ -4765,7 +4525,6 @@ io.on(
   }
 );
 
-
 /* =========================================================
    SHUTDOWN
 ========================================================= */
@@ -4773,53 +4532,41 @@ io.on(
 async function shutdown(
   signal
 ) {
-
   console.log(
     signal +
-    ' received, shutting down...'
+      ' received, shutting down...'
   );
-
 
   io.close();
 
-
   server.close(
     async function () {
-
       await pool.end();
 
       process.exit(
         0
       );
-
     }
   );
 }
 
-
 process.on(
   'SIGTERM',
   function () {
-
     shutdown(
       'SIGTERM'
     );
-
   }
 );
-
 
 process.on(
   'SIGINT',
   function () {
-
     shutdown(
       'SIGINT'
     );
-
   }
 );
-
 
 /* =========================================================
    START SERVER
@@ -4828,27 +4575,22 @@ process.on(
 initDb()
   .then(
     function () {
-
       server.listen(
         PORT,
         HOST,
         function () {
-
           console.log(
             'TRPG Online listening on ' +
-            HOST +
-            ':' +
-            PORT
+              HOST +
+              ':' +
+              PORT
           );
-
         }
       );
-
     }
   )
   .catch(
     function (err) {
-
       console.error(
         'Database initialization failed:',
         err
@@ -4857,6 +4599,5 @@ initDb()
       process.exit(
         1
       );
-
     }
   );
