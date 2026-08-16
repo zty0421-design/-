@@ -1,0 +1,4670 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101321">
+  <title>TRPG Online</title>
+
+  <style>
+    :root{
+      --bg:#0c0f19;
+      --panel:#151a29;
+      --panel2:#1b2235;
+      --panel3:#101523;
+      --line:#293149;
+      --text:#eef2ff;
+      --muted:#aab3cb;
+      --accent:#8b7cff;
+      --accent2:#6de1c1;
+      --danger:#ff7185;
+      --warning:#ffc857;
+      --shadow:0 14px 40px rgba(0,0,0,.25);
+    }
+
+    *{
+      box-sizing:border-box;
+    }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "Noto Sans TC",
+        sans-serif;
+      background:
+        radial-gradient(
+          circle at top,
+          #171b2f 0,
+          #0c0f19 46%,
+          #080a11 100%
+        );
+      color:var(--text);
+    }
+
+    button,
+    input,
+    select,
+    textarea{
+      font:inherit;
+    }
+
+    button{
+      cursor:pointer;
+      border:0;
+    }
+
+    .hidden{
+      display:none !important;
+    }
+
+    .muted{
+      color:var(--muted);
+    }
+
+    .danger-text{
+      color:var(--danger);
+    }
+
+    .success-text{
+      color:var(--accent2);
+    }
+
+    /* =========================
+       AUTH
+    ========================= */
+
+    .auth-shell{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:20px;
+    }
+
+    .auth-card{
+      width:min(460px,100%);
+      background:rgba(21,26,41,.94);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:30px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(12px);
+    }
+
+    .brand{
+      font-size:28px;
+      font-weight:800;
+      letter-spacing:.02em;
+    }
+
+    .brand span{
+      color:var(--accent);
+    }
+
+    .auth-card h1{
+      margin:10px 0 6px;
+    }
+
+    .auth-tabs{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      margin:22px 0 16px;
+      background:var(--panel2);
+      border-radius:12px;
+      padding:4px;
+    }
+
+    .tab{
+      padding:10px;
+      color:var(--muted);
+      background:transparent;
+      border-radius:8px;
+    }
+
+    .tab.active{
+      background:var(--accent);
+      color:white;
+    }
+
+    .field{
+      display:grid;
+      gap:7px;
+      margin:13px 0;
+    }
+
+    .field label{
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .field input,
+    .field select,
+    .field textarea{
+      width:100%;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      background:#0f1421;
+      color:var(--text);
+      border-radius:12px;
+      outline:none;
+    }
+
+    .field textarea{
+      min-height:100px;
+      resize:vertical;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus{
+      border-color:var(--accent);
+    }
+
+    .btn{
+      width:100%;
+      padding:13px 16px;
+      border-radius:12px;
+      background:var(--accent);
+      color:white;
+      font-weight:700;
+    }
+
+    .btn.secondary{
+      background:var(--panel2);
+      border:1px solid var(--line);
+    }
+
+    .btn.ghost{
+      background:transparent;
+      border:1px solid var(--line);
+    }
+
+    .btn.danger{
+      background:var(--danger);
+      color:#16080c;
+    }
+
+    .btn.small{
+      width:auto;
+      padding:8px 11px;
+      font-size:13px;
+    }
+
+    .error{
+      color:var(--danger);
+      font-size:13px;
+      margin-top:10px;
+      min-height:18px;
+    }
+
+    /* =========================
+       APP
+    ========================= */
+
+    .app{
+      display:grid;
+      grid-template-rows:64px 1fr;
+      min-height:100vh;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:0 20px;
+      border-bottom:1px solid var(--line);
+      background:rgba(12,15,25,.88);
+      backdrop-filter:blur(14px);
+      position:sticky;
+      top:0;
+      z-index:5;
+    }
+
+    .top-left,
+    .top-right{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .user-pill{
+      color:var(--muted);
+    }
+
+    .admin-pill{
+      padding:6px 9px;
+      border-radius:999px;
+      background:#453b86;
+      color:white;
+      font-size:12px;
+      font-weight:700;
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns:230px minmax(0,1fr);
+      min-height:calc(100vh - 64px);
+    }
+
+    .sidebar{
+      padding:18px;
+      border-right:1px solid var(--line);
+      background:rgba(16,20,33,.55);
+    }
+
+    .nav{
+      display:grid;
+      gap:8px;
+    }
+
+    .nav button{
+      padding:12px;
+      background:transparent;
+      color:var(--muted);
+      text-align:left;
+      border-radius:10px;
+    }
+
+    .nav button:hover,
+    .nav button.active{
+      background:var(--panel2);
+      color:white;
+    }
+
+    .nav .admin-nav{
+      border:1px solid rgba(139,124,255,.25);
+    }
+
+    .content{
+      min-width:0;
+      padding:18px;
+    }
+
+    /* =========================
+       CARDS
+    ========================= */
+
+    .card{
+      background:rgba(21,26,41,.84);
+      border:1px solid var(--line);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+    }
+
+    .card.pad{
+      padding:16px;
+    }
+
+    .card h2,
+    .card h3{
+      margin:0 0 12px;
+    }
+
+    .hero{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:18px;
+    }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .actions .btn{
+      width:auto;
+      padding:10px 13px;
+    }
+
+    .section{
+      margin-top:14px;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:
+        minmax(0,1.4fr)
+        minmax(280px,1fr);
+      gap:14px;
+    }
+
+    .stat-grid{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:10px;
+    }
+
+    .stat{
+      background:var(--panel2);
+      border:1px solid var(--line);
+      padding:12px;
+      border-radius:13px;
+    }
+
+    .stat .n{
+      font-size:24px;
+      font-weight:800;
+    }
+
+    /* =========================
+       ADMIN
+    ========================= */
+
+    .admin-header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:15px;
+      margin-bottom:15px;
+    }
+
+    .admin-tabs{
+      display:flex;
+      gap:8px;
+      margin-bottom:15px;
+      flex-wrap:wrap;
+    }
+
+    .admin-tab{
+      width:auto;
+      padding:10px 14px;
+      background:var(--panel2);
+      color:var(--muted);
+      border:1px solid var(--line);
+      border-radius:10px;
+    }
+
+    .admin-tab.active{
+      background:var(--accent);
+      color:white;
+      border-color:var(--accent);
+    }
+
+    .character-grid{
+      display:grid;
+      grid-template-columns:
+        repeat(auto-fill,minmax(310px,1fr));
+      gap:14px;
+    }
+
+    .character-card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:17px;
+      padding:16px;
+      transition:.15s ease;
+    }
+
+    .character-card:hover{
+      border-color:#4c5879;
+      transform:translateY(-1px);
+    }
+
+    .character-card-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .character-avatar{
+      width:48px;
+      height:48px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:
+        linear-gradient(
+          135deg,
+          var(--accent),
+          #4d62c9
+        );
+      font-size:21px;
+      font-weight:800;
+      flex-shrink:0;
+    }
+
+    .character-title{
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    .character-name{
+      font-size:19px;
+      font-weight:800;
+    }
+
+    .character-user{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:2px;
+    }
+
+    .badge{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#252d45;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+
+    .badge.admin{
+      background:#453b86;
+      color:white;
+    }
+
+    .badge.player{
+      background:#203c38;
+      color:#8ee8ce;
+    }
+
+    .character-info{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .mini-stat{
+      background:var(--panel3);
+      border:1px solid #222a40;
+      border-radius:10px;
+      padding:9px;
+    }
+
+    .mini-stat span{
+      display:block;
+      color:var(--muted);
+      font-size:11px;
+      margin-bottom:3px;
+    }
+
+    .mini-stat strong{
+      font-size:16px;
+    }
+
+    .character-details{
+      margin-top:12px;
+      padding-top:12px;
+      border-top:1px solid var(--line);
+      display:grid;
+      gap:7px;
+      font-size:13px;
+    }
+
+    .character-actions{
+      display:flex;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .character-actions .btn{
+      flex:1;
+      width:auto;
+      padding:9px 10px;
+    }
+
+    /* =========================
+       USERS
+    ========================= */
+
+    .user-list{
+      display:grid;
+      gap:9px;
+    }
+
+    .user-row{
+      display:grid;
+      grid-template-columns:
+        minmax(160px,1fr)
+        auto
+        auto;
+      gap:10px;
+      align-items:center;
+      padding:12px;
+      background:var(--panel3);
+      border:1px solid #222a40;
+      border-radius:12px;
+    }
+
+    /* =========================
+       ROOM
+    ========================= */
+
+    .room-code{
+      font-family:ui-monospace,monospace;
+      background:var(--panel2);
+      border:1px solid var(--line);
+      padding:7px 10px;
+      border-radius:10px;
+    }
+
+    .member-list{
+      display:grid;
+      gap:9px;
+    }
+
+    .member{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+      align-items:center;
+      padding:10px;
+      background:var(--panel3);
+      border:1px solid #222a40;
+      border-radius:12px;
+    }
+
+    .online-dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      display:inline-block;
+      background:#54607a;
+    }
+
+    .online-dot.on{
+      background:var(--accent2);
+      box-shadow:0 0 8px rgba(109,225,193,.6);
+    }
+
+    /* =========================
+       EVENTS / CHAT
+    ========================= */
+
+    .event-list{
+      display:grid;
+      gap:9px;
+      max-height:53vh;
+      overflow:auto;
+    }
+
+    .event{
+      padding:10px 12px;
+      background:var(--panel3);
+      border:1px solid #222a40;
+      border-radius:12px;
+    }
+
+    .event .head{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:5px;
+    }
+
+    .chat{
+      display:grid;
+      grid-template-rows:1fr auto;
+      min-height:400px;
+    }
+
+    .chat-log{
+      padding:14px;
+      overflow:auto;
+      display:grid;
+      gap:10px;
+    }
+
+    .chat-input{
+      display:flex;
+      gap:8px;
+      padding:10px;
+      border-top:1px solid var(--line);
+    }
+
+    .chat-input input{
+      flex:1;
+      padding:11px 12px;
+      border-radius:11px;
+      border:1px solid var(--line);
+      background:#0f1421;
+      color:var(--text);
+    }
+
+    .chat-input button{
+      width:auto;
+      padding:11px 15px;
+    }
+
+    /* =========================
+       MODAL
+    ========================= */
+
+    .modal{
+      position:fixed;
+      inset:0;
+      background:rgba(3,5,10,.78);
+      display:grid;
+      place-items:center;
+      padding:16px;
+      z-index:20;
+    }
+
+    .modal-card{
+      width:min(720px,100%);
+      max-height:90vh;
+      overflow:auto;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:18px;
+    }
+
+    .modal-actions{
+      display:flex;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .modal-actions .btn{
+      width:auto;
+      flex:1;
+    }
+
+    .edit-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .task-card{
+      display:grid;
+      gap:12px;
+    }
+
+    .task-head{
+      display:flex;
+      justify-content:space-between;
+      gap:14px;
+      align-items:flex-start;
+    }
+
+    .task-description{
+      white-space:pre-wrap;
+      line-height:1.7;
+    }
+
+    .task-block{
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:rgba(255,255,255,.02);
+    }
+
+    /* =========================
+       MOBILE
+    ========================= */
+
+    .mobile-nav{
+      display:none;
+    }
+
+    .toast{
+      position:fixed;
+      right:18px;
+      bottom:18px;
+      background:#171d2d;
+      border:1px solid var(--line);
+      padding:11px 13px;
+      border-radius:12px;
+      box-shadow:var(--shadow);
+      z-index:30;
+    }
+
+    @media(max-width:900px){
+      .layout{
+        grid-template-columns:190px minmax(0,1fr);
+      }
+
+      .character-grid{
+        grid-template-columns:
+          repeat(auto-fill,minmax(280px,1fr));
+      }
+    }
+
+    @media(max-width:760px){
+      .app{
+        grid-template-rows:58px 1fr 68px;
+      }
+
+      .topbar{
+        padding:0 12px;
+      }
+
+      .brand{
+        font-size:20px;
+      }
+
+      .user-pill{
+        display:none;
+      }
+
+      .layout{
+        grid-template-columns:1fr;
+        min-height:0;
+      }
+
+      .sidebar{
+        display:none;
+      }
+
+      .content{
+        padding:11px;
+        padding-bottom:78px;
+      }
+
+      .hero{
+        display:grid;
+      }
+
+      .stat-grid{
+        grid-template-columns:repeat(2,1fr);
+      }
+
+      .grid2{
+        grid-template-columns:1fr;
+      }
+
+      .character-grid{
+        grid-template-columns:1fr;
+      }
+
+      .user-row{
+        grid-template-columns:1fr;
+      }
+
+      .edit-grid{
+        grid-template-columns:1fr;
+      }
+
+      .mobile-nav{
+        position:fixed;
+        left:0;
+        right:0;
+        bottom:0;
+        height:68px;
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(0,1fr));
+        background:rgba(12,15,25,.97);
+        border-top:1px solid var(--line);
+        z-index:10;
+        padding-bottom:env(safe-area-inset-bottom);
+      }
+
+      .mobile-nav button{
+        background:transparent;
+        color:var(--muted);
+        display:grid;
+        place-items:center;
+        font-size:11px;
+        gap:3px;
+      }
+
+      .mobile-nav button.active{
+        color:white;
+      }
+
+      .actions{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+      }
+
+      .actions .btn{
+        width:100%;
+      }
+    }
+  
+/* Adaptive chat bubbles */
+.chat-log {
+  min-width: 0;
+}
+.event {
+  height: auto;
+  min-height: 0;
+  max-width: 100%;
+}
+.event > div:last-child,
+.event {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+
+
+/* =========================
+   PATCH V3: CHAT / LIBRARIES
+========================= */
+.chat-log{
+  align-content:start;
+  min-width:0;
+  overflow-x:hidden;
+}
+.chat-row{
+  display:flex;
+  width:100%;
+  min-width:0;
+}
+.chat-row.mine{
+  justify-content:flex-end;
+}
+.chat-row.other{
+  justify-content:flex-start;
+}
+.chat-bubble{
+  display:inline-block;
+  width:fit-content;
+  max-width:min(78%, 560px);
+  padding:9px 12px;
+  border-radius:16px;
+  background:var(--panel3);
+  border:1px solid #222a40;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  line-height:1.45;
+}
+.chat-row.mine .chat-bubble{
+  background:#2c3158;
+  border-color:#4c5188;
+  border-bottom-right-radius:5px;
+}
+.chat-row.other .chat-bubble{
+  border-bottom-left-radius:5px;
+}
+.chat-meta{
+  font-size:11px;
+  color:var(--muted);
+  margin-bottom:3px;
+}
+.library-list{
+  display:grid;
+  gap:10px;
+}
+.library-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:start;
+  padding:12px;
+  background:var(--panel3);
+  border:1px solid #222a40;
+  border-radius:12px;
+}
+.library-row .actions{
+  justify-content:flex-end;
+}
+.skill-card-inline{
+  margin-top:8px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--panel3);
+}
+.attribute-editor{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.attribute-points-box{
+  padding:12px;
+  border-radius:12px;
+  background:var(--panel3);
+  border:1px solid var(--line);
+  margin:10px 0;
+}
+@media(max-width:760px){
+  .chat-bubble{max-width:88%;}
+  .attribute-editor{grid-template-columns:1fr;}
+  .library-row{grid-template-columns:1fr;}
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- =========================
+     LOGIN
+========================= -->
+
+<div id="auth" class="auth-shell">
+  <div class="auth-card">
+
+    <div class="brand">
+      TRPG <span>ONLINE</span>
+    </div>
+
+    <h1>多人跑團平台</h1>
+
+    <div class="muted">
+      玩家可以登入遊玩，DM 可以管理跑團。
+    </div>
+
+    <div class="auth-tabs">
+      <button
+        class="tab active"
+        data-auth="login"
+      >
+        登入
+      </button>
+
+      <button
+        class="tab"
+        data-auth="register"
+      >
+        註冊
+      </button>
+    </div>
+
+    <form id="authForm">
+
+      <div class="field">
+        <label>帳號</label>
+        <input
+          id="username"
+          required
+          autocomplete="username"
+          minlength="2"
+          maxlength="20"
+        >
+      </div>
+
+      <div class="field">
+        <label>密碼</label>
+        <input
+          id="password"
+          required
+          type="password"
+          autocomplete="current-password"
+          minlength="6"
+        >
+      </div>
+
+      <button
+        class="btn"
+        id="authSubmit"
+        type="submit"
+      >
+        登入
+      </button>
+
+      <div
+        id="authError"
+        class="error"
+      ></div>
+
+    </form>
+
+  </div>
+</div>
+
+
+<!-- =========================
+     APP
+========================= -->
+
+<div id="app" class="app hidden">
+
+  <header class="topbar">
+
+    <div class="top-left">
+
+      <div class="brand">
+        TRPG <span>ONLINE</span>
+      </div>
+
+      <div id="roomTitle">
+        全站管理
+      </div>
+
+    </div>
+
+    <div class="top-right">
+
+      <span
+        id="adminPill"
+        class="admin-pill hidden"
+      >
+        全站 DM
+      </span>
+
+      <div
+        id="userPill"
+        class="user-pill"
+      ></div>
+
+      <button
+        id="logout"
+        class="btn ghost small"
+      >
+        登出
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <div class="layout">
+
+    <aside class="sidebar">
+
+      <div class="nav">
+
+        <button
+          data-view="dashboard"
+          class="active"
+        >
+          🏠 跑團首頁
+        </button>
+
+        <button data-view="room">
+          🎲 跑團房間
+        </button>
+
+        <button data-view="character">
+          🧙 我的角色卡
+        </button>
+
+        <button data-view="dice">
+          🎯 骰子
+        </button>
+
+        <button data-view="tasks">
+          📜 任務大廳
+        </button>
+
+        <button data-view="myTasks">
+          🗂️ 我的任務
+        </button>
+
+        <button
+          id="adminNav"
+          class="admin-nav hidden"
+          data-view="admin"
+        >
+          🛡️ DM 全站管理
+        </button>
+
+      </div>
+
+    </aside>
+
+
+    <main
+      id="content"
+      class="content"
+    ></main>
+
+  </div>
+
+
+  <nav class="mobile-nav">
+
+    <button
+      data-view="dashboard"
+      class="active"
+    >
+      🏠
+      <span>首頁</span>
+    </button>
+
+    <button data-view="room">
+      🎲
+      <span>房間</span>
+    </button>
+
+    <button data-view="character">
+      🧙
+      <span>角色</span>
+    </button>
+
+    <button data-view="tasks">
+      📜
+      <span>任務</span>
+    </button>
+
+    <button
+      id="mobileAdminNav"
+      data-view="admin"
+      class="hidden"
+    >
+      🛡️
+      <span>DM</span>
+    </button>
+
+  </nav>
+
+</div>
+
+
+<!-- =========================
+     MODAL
+========================= -->
+
+<div
+  id="modal"
+  class="modal hidden"
+>
+
+  <div class="modal-card">
+
+    <h2 id="modalTitle"></h2>
+
+    <div id="modalBody"></div>
+
+    <div class="modal-actions">
+
+      <button
+        id="modalCancel"
+        class="btn secondary"
+      >
+        取消
+      </button>
+
+      <button
+        id="modalOk"
+        class="btn"
+      >
+        確定
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<div
+  id="toast"
+  class="toast hidden"
+></div>
+
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+/* =========================================================
+   STATE
+========================================================= */
+
+const state = {
+  token: localStorage.getItem('rpg_token'),
+  user: null,
+  room: null,
+  rooms: [],
+  myCharacter: null,
+  adminCharacters: [],
+  adminUsers: [],
+  adminRooms: [],
+  professions: [],
+  skillTemplates: [],
+  summonTemplates: [],
+  tasksPublic: [],
+  myTasks: [],
+  adminTasks: [],
+  online: [],
+  view: 'dashboard',
+  adminView: 'characters',
+  socket: null,
+  authMode: 'login'
+};
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const $ = selector =>
+  document.querySelector(selector);
+
+const $$ = selector =>
+  [...document.querySelectorAll(selector)];
+
+
+function esc(value){
+  return String(value ?? '')
+    .replace(
+      /[&<>"']/g,
+      c => ({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[c])
+    );
+}
+
+
+function toast(message){
+  const el = $('#toast');
+
+  el.textContent = message;
+  el.classList.remove('hidden');
+
+  clearTimeout(window.__toast);
+
+  window.__toast =
+    setTimeout(
+      () => el.classList.add('hidden'),
+      2600
+    );
+}
+
+
+async function api(url, options = {}){
+
+  const response =
+    await fetch(
+      url,
+      {
+        ...options,
+
+        headers:{
+          'Content-Type':
+            'application/json',
+
+          'Authorization':
+            `Bearer ${state.token}`,
+
+          ...(options.headers || {})
+        }
+      }
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      );
+
+  if(!response.ok){
+    throw new Error(
+      data.error ||
+      '請求失敗'
+    );
+  }
+
+  return data;
+}
+
+
+/* =========================================================
+   AUTH
+========================================================= */
+
+function showAuth(){
+
+  $('#auth')
+    .classList
+    .remove('hidden');
+
+  $('#app')
+    .classList
+    .add('hidden');
+}
+
+
+function showApp(){
+
+  $('#auth')
+    .classList
+    .add('hidden');
+
+  $('#app')
+    .classList
+    .remove('hidden');
+
+  $('#userPill').textContent =
+    state.user?.username || '';
+
+  const isAdmin =
+    Boolean(
+      state.user?.is_admin
+    );
+
+  $('#adminPill')
+    .classList
+    .toggle('hidden', !isAdmin);
+
+  $('#adminNav')
+    .classList
+    .toggle('hidden', !isAdmin);
+
+  $('#mobileAdminNav')
+    .classList
+    .toggle('hidden', !isAdmin);
+
+  connectSocket();
+
+  render();
+}
+
+
+async function boot(){
+
+  if(!state.token){
+    showAuth();
+    return;
+  }
+
+  try{
+
+    const me =
+      await api('/api/me');
+
+    state.user =
+      me.user;
+
+    await loadMyCharacter();
+    await Promise.all([
+      loadProfessions(),
+      loadSkillTemplates(),
+      loadSummonTemplates(),
+      loadPublicTasks(),
+      loadMyTasks()
+    ]);
+
+    if(state.user.is_admin){
+
+      await loadAdminData();
+
+      state.view =
+        'admin';
+
+    }
+
+    showApp();
+
+  }catch(error){
+
+    console.error(error);
+
+    localStorage.removeItem(
+      'rpg_token'
+    );
+
+    state.token = null;
+
+    showAuth();
+  }
+}
+
+
+async function submitAuth(event){
+
+  event.preventDefault();
+
+  $('#authError').textContent =
+    '';
+
+  const username =
+    $('#username')
+      .value
+      .trim();
+
+  const password =
+    $('#password')
+      .value;
+
+  try{
+
+    const endpoint =
+      state.authMode === 'login'
+        ? '/api/auth/login'
+        : '/api/auth/register';
+
+    const response =
+      await fetch(
+        endpoint,
+        {
+          method:'POST',
+
+          headers:{
+            'Content-Type':
+              'application/json'
+          },
+
+          body:
+            JSON.stringify({
+              username,
+              password
+            })
+        }
+      );
+
+    const data =
+      await response
+        .json()
+        .catch(
+          () => ({})
+        );
+
+    if(!response.ok){
+      throw new Error(
+        data.error ||
+        '操作失敗'
+      );
+    }
+
+    state.token =
+      data.token;
+
+    state.user =
+      data.user;
+
+    localStorage.setItem(
+      'rpg_token',
+      state.token
+    );
+
+    await loadMyCharacter();
+    await Promise.all([loadProfessions(), loadSkillTemplates(), loadSummonTemplates()]);
+
+    if(state.user.is_admin){
+
+      await loadAdminData();
+
+      state.view =
+        'admin';
+
+    }else{
+
+      state.view =
+        'dashboard';
+
+    }
+
+    showApp();
+
+  }catch(error){
+
+    $('#authError')
+      .textContent =
+        error.message;
+  }
+}
+
+
+/* =========================================================
+   SOCKET
+========================================================= */
+
+function connectSocket(){
+
+  if(state.socket){
+    state.socket.disconnect();
+  }
+
+  state.socket =
+    io({
+      auth:{
+        token:
+          state.token
+      }
+    });
+
+  state.socket.on(
+    'connect_error',
+    () => toast('即時連線失敗')
+  );
+
+  state.socket.on(
+    'presence',
+    data => {
+
+      state.online =
+        data.online || [];
+
+      render();
+    }
+  );
+
+  state.socket.on(
+    'room:snapshot',
+    snapshot => {
+
+      state.room =
+        snapshot;
+
+      render();
+    }
+  );
+
+  state.socket.on(
+    'error:message',
+    message => {
+      toast(message);
+    }
+  );
+}
+
+
+/* =========================================================
+   CHARACTER DATA
+========================================================= */
+
+async function loadMyCharacter(){
+
+  try{
+
+    const data =
+      await api(
+        '/api/character'
+      );
+
+    state.myCharacter =
+      data.character || null;
+
+  }catch(error){
+
+    console.warn(
+      '讀取自己的角色卡失敗',
+      error
+    );
+
+    state.myCharacter =
+      null;
+  }
+}
+
+
+async function loadProfessions(){
+  try{
+    const data=await api('/api/professions');
+    state.professions=data.professions||[];
+  }catch(error){
+    console.warn('讀取職業資料庫失敗',error);
+    state.professions=[];
+  }
+}
+
+async function loadSkillTemplates(){
+  try{
+    const data=await api('/api/skill-templates');
+    state.skillTemplates=data.skills||[];
+  }catch(error){
+    console.warn('讀取技能資料庫失敗',error);
+    state.skillTemplates=[];
+  }
+}
+
+async function loadSummonTemplates(){
+  try{
+    const data=await api('/api/summon-templates');
+    state.summonTemplates=data.summon_templates||[];
+  }catch(error){
+    console.warn('讀取召喚物資料庫失敗',error);
+    state.summonTemplates=[];
+  }
+}
+
+async function loadAdminCharacters(){
+
+  const data =
+    await api(
+      '/api/admin/characters'
+    );
+
+  state.adminCharacters =
+    data.characters || [];
+}
+
+
+async function loadAdminUsers(){
+
+  const data =
+    await api(
+      '/api/admin/users'
+    );
+
+  state.adminUsers =
+    data.users || [];
+}
+
+
+async function loadAdminRooms(){
+
+  const data =
+    await api(
+      '/api/admin/rooms'
+    );
+
+  state.adminRooms =
+    data.rooms || [];
+}
+
+
+
+async function loadPublicTasks(){
+  const data = await api('/api/tasks/public');
+  state.tasksPublic = data.tasks || [];
+}
+
+async function loadMyTasks(){
+  const data = await api('/api/tasks/my');
+  state.myTasks = data.tasks || [];
+}
+
+async function loadAdminTasks(){
+  if(!state.user?.is_admin){
+    return;
+  }
+
+  const data = await api('/api/admin/tasks');
+  state.adminTasks = data.tasks || [];
+}
+
+async function loadAdminData(){
+
+  if(!state.user?.is_admin){
+    return;
+  }
+
+  await Promise.all([
+    loadAdminCharacters(),
+    loadAdminUsers(),
+    loadAdminRooms(),
+    loadAdminTasks(),
+    loadProfessions(),
+    loadSkillTemplates(),
+    loadSummonTemplates()
+  ]);
+}
+
+
+/* =========================================================
+   RENDER
+========================================================= */
+
+function render(){
+
+  renderNavigation();
+
+  renderContent();
+}
+
+
+function renderNavigation(){
+
+  $$('[data-view]')
+    .forEach(
+      button => {
+
+        button.classList.toggle(
+          'active',
+          button.dataset.view ===
+          state.view
+        );
+
+      }
+    );
+}
+
+
+function renderContent(){
+
+  const content =
+    $('#content');
+
+  if(state.view === 'dashboard'){
+
+    content.innerHTML =
+      dashboardHTML();
+
+  }else if(state.view === 'room'){
+
+    content.innerHTML =
+      roomHTML();
+
+  }else if(state.view === 'character'){
+
+    content.innerHTML =
+      characterHTML();
+
+  }else if(state.view === 'dice'){
+
+    content.innerHTML =
+      diceHTML();
+
+  }else if(state.view === 'tasks'){
+
+    content.innerHTML =
+      taskHallHTML();
+
+  }else if(state.view === 'myTasks'){
+
+    content.innerHTML =
+      myTasksHTML();
+
+  }else if(
+    state.view === 'admin' &&
+    state.user?.is_admin
+  ){
+
+    content.innerHTML =
+      adminHTML();
+
+  }else{
+
+    state.view =
+      state.user?.is_admin
+        ? 'admin'
+        : 'dashboard';
+
+    content.innerHTML =
+      state.user?.is_admin
+        ? adminHTML()
+        : dashboardHTML();
+  }
+
+  bindView();
+}
+
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
+
+function dashboardHTML(){
+
+  const room =
+    state.room?.room;
+
+  const character =
+    state.myCharacter;
+
+  return `
+
+    <section class="card pad hero">
+
+      <div>
+
+        <div class="muted">
+          歡迎回來，
+          ${esc(state.user.username)}
+        </div>
+
+        <h2>
+          ${room
+            ? esc(room.name)
+            : 'TRPG Online'}
+        </h2>
+
+        <div class="muted">
+          ${
+            room
+              ? `房間代碼
+                 <b>${esc(room.code)}</b>
+                 · ${
+                   room.status === 'active'
+                     ? '跑團進行中'
+                     : '等待 DM 開團'
+                 }`
+              : '角色卡與帳號資料已經與房間分離。'
+          }
+        </div>
+
+      </div>
+
+      <div class="actions">
+
+        ${
+          !room
+            ? `
+              ${state.user.is_admin ? `
+                <button class="btn" id="createRoom">＋ 建立房間</button>
+              ` : ''}
+              ${!state.user.is_admin ? `
+                <button class="btn secondary" id="joinRoom">加入房間</button>
+              ` : ''}
+            `
+            : ''
+        }
+
+        ${
+          room &&
+          String(room.owner_id) ===
+          String(state.user.id) &&
+          room.status === 'lobby'
+            ? `
+              <button
+                class="btn"
+                id="startCampaign"
+              >
+                ▶ DM 開團
+              </button>
+            `
+            : ''
+        }
+
+        ${
+          state.user.is_admin
+            ? `
+              <button
+                class="btn secondary"
+                id="openAdmin"
+              >
+                🛡️ 全站管理
+              </button>
+            `
+            : ''
+        }
+
+      </div>
+
+    </section>
+
+
+    <div class="stat-grid section">
+
+      <div class="stat">
+        <div class="muted">
+          我的角色
+        </div>
+        <div class="n">
+          ${
+            character
+              ? '1'
+              : '0'
+          }
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="muted">
+          房間
+        </div>
+        <div class="n">
+          ${
+            state.room
+              ? '1'
+              : '0'
+          }
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="muted">
+          在線
+        </div>
+        <div class="n">
+          ${state.online.length}
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="muted">
+          身分
+        </div>
+        <div
+          class="n"
+          style="font-size:17px"
+        >
+          ${
+            state.user.is_admin
+              ? '全站 DM'
+              : '玩家'
+          }
+        </div>
+      </div>
+
+    </div>
+
+
+    <div class="grid2 section">
+
+      <div class="card pad">
+
+        <h3>
+          我的角色卡
+        </h3>
+
+        ${
+          character
+            ? `
+              <div>
+                <b>${esc(character.name)}</b>
+                <div class="muted">
+                  Lv.${character.level}
+                  · ${esc(character.main_class)}
+                </div>
+              </div>
+            `
+            : `
+              <div class="muted">
+                你目前還沒有角色卡。
+              </div>
+            `
+        }
+
+      </div>
+
+
+      <div class="card pad">
+
+        <h3>
+          DM 管理
+        </h3>
+
+        ${
+          state.user.is_admin
+            ? `
+              <div class="muted">
+                你是全站 DM。
+                不需要進入房間，就可以查看所有玩家角色卡、修改角色資料與管理帳號。
+              </div>
+            `
+            : `
+              <div class="muted">
+                一般玩家只能管理自己的角色。
+              </div>
+            `
+        }
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+
+
+/* =========================================================
+   TASK HALL
+========================================================= */
+
+function taskRewardHTML(rewards){
+  const r = rewards || {};
+  const parts = [];
+
+  if(Number(r.experience) > 0) parts.push(`經驗 +${Number(r.experience)}`);
+  if(Number(r.attribute_points) > 0) parts.push(`屬性點 +${Number(r.attribute_points)}`);
+  if(Number(r.skill_points) > 0) parts.push(`技能點 +${Number(r.skill_points)}`);
+  if(Array.isArray(r.equipment) && r.equipment.length) parts.push(`裝備 ×${r.equipment.length}`);
+  if(Array.isArray(r.weapons) && r.weapons.length) parts.push(`武器 ×${r.weapons.length}`);
+
+  return parts.length ? parts.map(esc).join(' · ') : '無預設獎勵';
+}
+
+function taskCardHTML(task, privateList = false){
+  const status = task.my_status;
+  const completed = status === 'completed';
+  const accepted = status === 'accepted';
+
+  return `
+    <article class="card pad task-card">
+      <div class="task-head">
+        <div>
+          <div class="muted">
+            ${task.task_type === 'private' ? '🔒 私人任務' : '🌐 公共任務'}
+            · 最低 ${Number(task.min_tier) || 1} 階
+          </div>
+          <h3>${esc(task.title)}</h3>
+        </div>
+        <span class="badge ${completed ? 'admin' : 'player'}">
+          ${completed ? '已完成' : accepted ? '進行中' : '可接受'}
+        </span>
+      </div>
+
+      <div class="muted task-description">
+        ${esc(task.description || '未填寫任務內容')}
+      </div>
+
+      ${task.requirements ? `
+        <div class="task-block">
+          <b>任務要求</b>
+          <div class="muted">${esc(task.requirements)}</div>
+        </div>
+      ` : ''}
+
+      <div class="task-block">
+        <b>獎勵</b>
+        <div class="muted">${taskRewardHTML(task.rewards)}</div>
+      </div>
+
+      <div class="actions">
+        ${!privateList && !accepted && !completed ? `
+          <button class="btn accept-task" data-task-id="${task.id}">
+            接受任務
+          </button>
+        ` : ''}
+      </div>
+    </article>
+  `;
+}
+
+function taskHallHTML(){
+  const tasks = state.tasksPublic || [];
+
+  return `
+    <div class="admin-header">
+      <div>
+        <div class="muted">PUBLIC QUEST BOARD</div>
+        <h2>任務大廳</h2>
+        <div class="muted">所有玩家都能看到的公共任務。接受後會進入「我的任務」。</div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" id="refreshTasks">↻ 重新整理</button>
+      </div>
+    </div>
+
+    <div class="character-grid">
+      ${tasks.length
+        ? tasks.map(task => taskCardHTML(task)).join('')
+        : `<div class="card pad"><div class="muted">目前沒有公開任務。</div></div>`}
+    </div>
+  `;
+}
+
+function myTasksHTML(){
+  const tasks = state.myTasks || [];
+
+  return `
+    <div class="admin-header">
+      <div>
+        <div class="muted">PRIVATE QUEST LIST</div>
+        <h2>我的任務</h2>
+        <div class="muted">這裡只顯示你接受的公共任務，以及 DM 指派給你的私人任務。</div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" id="refreshMyTasks">↻ 重新整理</button>
+      </div>
+    </div>
+
+    <div class="character-grid">
+      ${tasks.length
+        ? tasks.map(task => taskCardHTML(task, true)).join('')
+        : `<div class="card pad"><div class="muted">目前沒有私人任務。</div></div>`}
+    </div>
+  `;
+}
+
+/* =========================================================
+   ADMIN
+========================================================= */
+
+function adminHTML(){
+
+  return `
+
+    <div class="admin-header">
+
+      <div>
+
+        <div class="muted">
+          GLOBAL DM
+        </div>
+
+        <h2>
+          全站 DM 管理中心
+        </h2>
+
+        <div class="muted">
+          這裡完全不依賴房間。
+          玩家離線、沒有加入任何房間，
+          角色卡仍然會顯示。
+        </div>
+
+      </div>
+
+      <div class="actions">
+
+        <button
+          class="btn secondary"
+          id="refreshAdmin"
+        >
+          ↻ 重新整理
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="admin-tabs">
+
+      <button
+        class="admin-tab ${
+          state.adminView === 'characters'
+            ? 'active'
+            : ''
+        }"
+        data-admin-view="characters"
+      >
+        🧙 所有角色卡
+      </button>
+
+      <button
+        class="admin-tab ${
+          state.adminView === 'users'
+            ? 'active'
+            : ''
+        }"
+        data-admin-view="users"
+      >
+        👥 所有帳號
+      </button>
+
+      <button
+        class="admin-tab ${
+          state.adminView === 'rooms'
+            ? 'active'
+            : ''
+        }"
+        data-admin-view="rooms"
+      >
+        🎲 所有房間
+      </button>
+
+      <button
+        class="admin-tab ${
+          state.adminView === 'tasks'
+            ? 'active'
+            : ''
+        }"
+        data-admin-view="tasks"
+      >
+        📜 任務管理
+      </button>
+
+
+      <button class="admin-tab ${state.adminView === 'skills' ? 'active' : ''}" data-admin-view="skills">
+        ✨ 技能資料庫
+      </button>
+
+      <button class="admin-tab ${state.adminView === 'professions' ? 'active' : ''}" data-admin-view="professions">
+        🧭 職業資料庫
+      </button>
+
+      <button class="admin-tab ${state.adminView === 'summons' ? 'active' : ''}" data-admin-view="summons">
+        🤖 召喚物 AI
+      </button>
+
+    </div>
+
+
+    ${
+      state.adminView === 'characters'
+        ? adminCharactersHTML()
+        : ''
+    }
+
+    ${
+      state.adminView === 'users'
+        ? adminUsersHTML()
+        : ''
+    }
+
+    ${
+      state.adminView === 'rooms'
+        ? adminRoomsHTML()
+        : ''
+    }
+
+    ${
+      state.adminView === 'tasks'
+        ? adminTasksHTML()
+        : ''
+    }
+
+    ${state.adminView === 'skills' ? adminSkillsHTML() : ''}
+    ${state.adminView === 'professions' ? adminProfessionsHTML() : ''}
+    ${state.adminView === 'summons' ? adminSummonsHTML() : ''}
+
+  `;
+}
+
+
+
+function adminSkillsHTML(){
+  const skills=state.skillTemplates||[];
+  return `
+    <div class="card pad">
+      <h3>建立技能</h3>
+      <div class="muted">玩家之後會先選「類別」，再從該類別選技能，不需要輸入 JSON。</div>
+      <form id="skillTemplateForm" class="edit-grid section">
+        <div class="field"><label>技能名稱</label><input id="stName" required maxlength="120"></div>
+        <div class="field"><label>類別</label><input id="stCategory" value="一般" maxlength="60" placeholder="例如：戰鬥、探索、召喚"></div>
+        <div class="field"><label>技能類型</label><select id="stType"><option value="active">主動</option><option value="passive">被動</option><option value="reaction">反應</option><option value="special">特殊</option></select></div>
+        <div class="field"><label>預設等級</label><input id="stLevel" type="number" min="1" value="1"></div>
+        <div class="field"><label>判定</label><input id="stCheck" placeholder="例如：力量"></div>
+        <div class="field"><label>傷害判定</label><input id="stDamage" placeholder="例如：1D力量 × 1.5"></div>
+        <div class="field"><label>額外技能標籤</label><input id="stExtraTag" placeholder="可留空"></div>
+        <div class="field"><label><input id="stSummon" type="checkbox"> 召喚技能</label></div>
+        <div class="field" style="grid-column:1/-1"><label>技能描述</label><textarea id="stDescription" rows="4"></textarea></div>
+        <div class="actions" style="grid-column:1/-1"><button class="btn">加入技能資料庫</button></div>
+      </form>
+    </div>
+    <div class="card pad section">
+      <h3>技能資料庫</h3>
+      <div class="library-list section">
+        ${skills.length?skills.map(skill=>`
+          <div class="library-row">
+            <div><b>${esc(skill.name)}</b> <span class="badge">${esc(skill.category||'一般')}</span>
+              <div class="muted">${esc(skill.skill_type||'active')} · Lv.${Number(skill.level)||1}</div>
+              ${skill.check_name?`<div class="muted">判定：${esc(skill.check_name)}</div>`:''}
+              ${skill.damage_formula?`<div class="muted">傷害：${esc(skill.damage_formula)}</div>`:''}
+              ${skill.description?`<div class="muted">${esc(skill.description)}</div>`:''}
+            </div>
+            <div class="actions"><button class="btn danger small delete-skill-template" data-id="${skill.id}">刪除</button></div>
+          </div>`).join(''):'<div class="muted">目前沒有技能。</div>'}
+      </div>
+    </div>`;
+}
+
+function adminProfessionsHTML(){
+  const items=state.professions||[];
+  const categoryLabel={main:'主職業',sub:'副職業',both:'主／副皆可'};
+  return `
+    <div class="card pad">
+      <h3>建立職業</h3>
+      <div class="muted">玩家只能從這個職業資料庫選擇主職業與最多 3 個副職業。</div>
+      <form id="professionForm" class="edit-grid section">
+        <div class="field"><label>職業名稱</label><input id="pfName" required maxlength="100"></div>
+        <div class="field"><label>用途</label><select id="pfCategory"><option value="both">主／副皆可</option><option value="main">只可主職業</option><option value="sub">只可副職業</option></select></div>
+        <div class="field"><label>等階</label><select id="pfRank">${['G','F','E','D','C','B','A','S','SS','SSS'].map(x=>`<option>${x}</option>`).join('')}</select></div>
+        <div class="field" style="grid-column:1/-1"><label>說明</label><textarea id="pfDescription" rows="3"></textarea></div>
+        <div class="actions" style="grid-column:1/-1"><button class="btn">加入職業資料庫</button></div>
+      </form>
+    </div>
+    <div class="card pad section"><h3>職業資料庫</h3><div class="library-list section">
+      ${items.length?items.map(item=>`<div class="library-row"><div><b>${esc(item.name)}</b> <span class="badge">${esc(item.rank||'G')}</span><div class="muted">${categoryLabel[item.category]||'主／副皆可'}</div>${item.description?`<div class="muted">${esc(item.description)}</div>`:''}</div><div class="actions"><button class="btn danger small delete-profession" data-id="${item.id}">刪除</button></div></div>`).join(''):'<div class="muted">目前沒有職業。</div>'}
+    </div></div>`;
+}
+
+function adminSummonsHTML(){
+  const items=state.summonTemplates||[];
+  const controlLabel={manual:'手動',assist:'半自動',auto:'全自動'};
+  const behaviorLabel={balanced:'平衡',aggressive:'進攻',defensive:'防守',support:'支援',protect_owner:'保護主人'};
+  return `
+    <div class="card pad">
+      <h3>建立召喚物 AI 模板</h3>
+      <div class="muted">手動＝玩家決定行動；半自動＝玩家下指令、AI 依行動模式處理；全自動＝依 AI 等級與行動模式自主判斷。能不能說話另外設定，不和 AI 等級綁死。</div>
+      <form id="summonTemplateForm" class="edit-grid section">
+        <div class="field"><label>召喚物名稱</label><input id="smName" required maxlength="120"></div>
+        <div class="field"><label>控制方式</label><select id="smControl"><option value="manual">手動</option><option value="assist">半自動</option><option value="auto">全自動</option></select></div>
+        <div class="field"><label>AI 等級</label><input id="smAi" type="number" min="0" max="10" value="0"></div>
+        <div class="field"><label>行動模式</label><select id="smBehavior"><option value="balanced">平衡</option><option value="aggressive">進攻</option><option value="defensive">防守</option><option value="support">支援</option><option value="protect_owner">保護主人</option></select></div>
+        <div class="field"><label>語言能力</label><input id="smLanguage" type="number" min="0" max="10" value="0"></div>
+        <div class="field"><label>忠誠度</label><input id="smLoyalty" type="number" min="0" value="100"></div>
+        <div class="field"><label>成長方式</label><select id="smGrowth"><option value="fixed">固定成長</option><option value="owner">跟隨主人</option><option value="mixed">混合</option><option value="modify">改造</option></select></div>
+        <div class="field"><label><input id="smSpeech" type="checkbox"> 可以說話</label></div>
+        <div class="field" style="grid-column:1/-1"><label>說明</label><textarea id="smDescription" rows="3"></textarea></div>
+        <div class="actions" style="grid-column:1/-1"><button class="btn">建立召喚物模板</button></div>
+      </form>
+    </div>
+    <div class="card pad section"><h3>召喚物模板</h3><div class="library-list section">
+      ${items.length?items.map(item=>`<div class="library-row"><div><b>${esc(item.name)}</b><div class="muted">控制：${controlLabel[item.control_mode]||'手動'} · AI Lv.${Number(item.self_ai_level)||0} · ${behaviorLabel[item.behavior_mode]||'平衡'}</div><div class="muted">語言 ${Number(item.language_level)||0} · ${item.speech_enabled?'可說話':'不可說話'} · 忠誠 ${Number(item.loyalty)||0}</div>${item.description?`<div class="muted">${esc(item.description)}</div>`:''}</div><div class="actions"><button class="btn danger small delete-summon-template" data-id="${item.id}">刪除</button></div></div>`).join(''):'<div class="muted">目前沒有召喚物模板。</div>'}
+    </div></div>`;
+}
+
+function adminTasksHTML(){
+  const tasks = state.adminTasks || [];
+  const users = (state.adminUsers || []).filter(user => !user.is_admin);
+
+  return `
+    <div class="card pad section">
+      <div class="task-head">
+        <div>
+          <h3>建立任務</h3>
+          <div class="muted">任務內容、要求與獎勵全部由 DM 自行決定。</div>
+        </div>
+      </div>
+
+      <form id="taskCreateForm" class="edit-grid">
+        <div class="field">
+          <label>任務名稱</label>
+          <input id="taskTitle" required maxlength="120" placeholder="例如：清剿失控詭異">
+        </div>
+        <div class="field">
+          <label>類型</label>
+          <select id="taskType">
+            <option value="public">公共任務</option>
+            <option value="private">私人任務</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>私人任務指定玩家</label>
+          <select id="taskTargetUser">
+            <option value="">公共任務／不指定</option>
+            ${users.map(user => `<option value="${user.id}">${esc(user.username)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>最低階</label>
+          <input id="taskMinTier" type="number" min="1" max="10" value="1">
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>任務內容</label>
+          <textarea id="taskDescription" rows="4" placeholder="由 DM 自行撰寫"></textarea>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>任務要求</label>
+          <textarea id="taskRequirements" rows="3" placeholder="可留空"></textarea>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>獎勵 JSON</label>
+          <textarea id="taskRewards" rows="5">{\n  "experience": 0,\n  "attribute_points": 0,\n  "skill_points": 0,\n  "equipment": [],\n  "weapons": []\n}</textarea>
+        </div>
+        <div class="actions" style="grid-column:1/-1">
+          <button class="btn">發布任務</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="character-grid">
+      ${tasks.length ? tasks.map(task => `
+        <article class="card pad task-card">
+          <div class="task-head">
+            <div>
+              <div class="muted">${task.task_type === 'private' ? '🔒 私人' : '🌐 公共'} · ${esc(task.target_username || '所有玩家')}</div>
+              <h3>${esc(task.title)}</h3>
+            </div>
+            <span class="badge ${task.status === 'open' ? 'player' : 'admin'}">${esc(task.status)}</span>
+          </div>
+          <div class="muted task-description">${esc(task.description || '')}</div>
+          <div class="task-block"><b>要求</b><div class="muted">${esc(task.requirements || '無')}</div></div>
+          <div class="task-block"><b>獎勵</b><div class="muted">${taskRewardHTML(task.rewards)}</div></div>
+          <div class="muted">已接受／指定：${Number(task.participant_count) || 0} 人</div>
+          <div class="actions">
+            <button class="btn secondary complete-task" data-task-id="${task.id}" data-user-id="${task.target_user_id || ''}">完成任務</button>
+            <button class="btn ghost delete-task" data-task-id="${task.id}">刪除</button>
+          </div>
+        </article>
+      `).join('') : `<div class="card pad"><div class="muted">目前沒有任務。</div></div>`}
+    </div>
+  `;
+}
+
+/* =========================================================
+   ADMIN CHARACTERS
+========================================================= */
+
+function adminCharactersHTML(){
+
+  const characters =
+    state.adminCharacters || [];
+
+  if(!characters.length){
+
+    return `
+      <div class="card pad">
+        <h3>所有玩家角色卡</h3>
+        <div class="muted">
+          目前沒有任何角色卡。
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+
+    <div class="character-grid">
+
+      ${characters.map(
+        characterCardHTML
+      ).join('')}
+
+    </div>
+
+  `;
+}
+
+
+function characterCardHTML(character){
+
+  const skills =
+    Array.isArray(character.skills)
+      ? character.skills
+      : [];
+
+  const equipment =
+    Array.isArray(character.equipment)
+      ? character.equipment
+      : [];
+
+  const weapons =
+    Array.isArray(character.weapons)
+      ? character.weapons
+      : [];
+
+  return `
+
+    <article
+      class="character-card"
+      data-character-id="${character.id}"
+    >
+
+      <div class="character-card-head">
+
+        <div class="character-title">
+
+          <div class="character-avatar">
+            ${esc(
+              String(
+                character.name ||
+                '?'
+              ).slice(0,1)
+            )}
+          </div>
+
+          <div>
+
+            <div class="character-name">
+              ${esc(character.name)}
+            </div>
+
+            <div class="character-user">
+              帳號：
+              @${esc(character.username)}
+            </div>
+
+          </div>
+
+        </div>
+
+        ${
+          character.is_admin
+            ? `
+              <span class="badge admin">
+                DM
+              </span>
+            `
+            : `
+              <span class="badge player">
+                玩家
+              </span>
+            `
+        }
+
+      </div>
+
+
+      <div class="character-info">
+
+        <div class="mini-stat">
+          <span>等級</span>
+          <strong>
+            Lv.${Number(character.level) || 1}
+          </strong>
+        </div>
+
+        <div class="mini-stat">
+          <span>階級</span>
+          <strong>
+            ${Number(character.tier) || 1}
+          </strong>
+        </div>
+
+        <div class="mini-stat">
+          <span>幸運</span>
+          <strong>
+            ${Number(character.luck) || 0}
+          </strong>
+        </div>
+
+        <div class="mini-stat">
+          <span>力量</span>
+          <strong>
+            ${Number(character.strength) || 0}
+          </strong>
+        </div>
+
+        <div class="mini-stat">
+          <span>體質</span>
+          <strong>
+            ${Number(character.constitution) || 0}
+          </strong>
+        </div>
+
+        <div class="mini-stat">
+          <span>精神</span>
+          <strong>
+            ${Number(character.spirit) || 0}
+          </strong>
+        </div>
+
+      </div>
+
+
+      <div class="character-details">
+
+        <div>
+          <span class="muted">
+            陣營：
+          </span>
+          ${esc(character.faction)}
+        </div>
+
+        <div>
+          <span class="muted">
+            主職業：
+          </span>
+          ${esc(character.main_class)}
+        </div>
+
+        <div>
+          <span class="muted">
+            副職業：
+          </span>
+          ${
+            Array.isArray(character.sub_classes)
+              ? character.sub_classes
+                  .map(esc)
+                  .join('、') || '無'
+              : '無'
+          }
+        </div>
+
+        <div>
+          <span class="muted">
+            大道：
+          </span>
+          ${
+            character.great_way_name
+              ? `${esc(character.great_way_name)} Lv.${Number(character.great_way)||0}`
+              : '未設定'
+          }
+        </div>
+
+        <div>
+          <span class="muted">
+            技能：
+          </span>
+          ${skills.length}
+        </div>
+
+        <div>
+          <span class="muted">
+            裝備：
+          </span>
+          ${equipment.length}
+          · 武器：
+          ${weapons.length}
+        </div>
+
+      </div>
+
+
+      <div class="character-actions">
+
+        <button
+          class="btn secondary edit-character"
+          data-id="${character.id}"
+        >
+          ✏️ 修改
+        </button>
+
+        <button
+          class="btn danger delete-user"
+          data-user-id="${character.user_id}"
+          data-username="${esc(character.username)}"
+        >
+          🗑️ 刪除帳號
+        </button>
+
+      </div>
+
+    </article>
+
+  `;
+}
+
+
+/* =========================================================
+   ADMIN USERS
+========================================================= */
+
+function adminUsersHTML(){
+
+  const users =
+    state.adminUsers || [];
+
+  return `
+
+    <div class="card pad">
+
+      <h3>
+        所有帳號
+      </h3>
+
+      <div class="muted section">
+        DM 可以從這裡刪除玩家帳號。
+        刪除帳號會依照資料庫的 CASCADE
+        同時刪除該帳號自己的角色卡。
+      </div>
+
+      <div class="user-list section">
+
+        ${
+          users.length
+            ? users.map(
+                user => `
+                  <div class="user-row">
+
+                    <div>
+                      <b>
+                        ${esc(user.username)}
+                      </b>
+
+                      <div class="muted">
+                        ID ${user.id}
+                        · ${
+                          user.character_name
+                            ? `角色：${esc(user.character_name)}`
+                            : '沒有角色卡'
+                        }
+                      </div>
+                    </div>
+
+                    <div>
+                      ${
+                        user.is_admin
+                          ? `
+                            <span class="badge admin">
+                              DM
+                            </span>
+                          `
+                          : `
+                            <span class="badge player">
+                              玩家
+                            </span>
+                          `
+                      }
+                    </div>
+
+                    <div>
+
+                      ${
+                        user.is_admin
+                          ? `
+                            <span class="muted">
+                              受保護
+                            </span>
+                          `
+                          : `
+                            <button
+                              class="btn danger small delete-user"
+                              data-user-id="${user.id}"
+                              data-username="${esc(user.username)}"
+                            >
+                              刪除帳號
+                            </button>
+                          `
+                      }
+
+                    </div>
+
+                  </div>
+                `
+              ).join('')
+            : `
+              <div class="muted">
+                沒有帳號。
+              </div>
+            `
+        }
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+
+/* =========================================================
+   ADMIN ROOMS
+========================================================= */
+
+function adminRoomsHTML(){
+
+  const rooms =
+    state.adminRooms || [];
+
+  return `
+
+    <div class="card pad">
+
+      <h3>
+        全站房間
+      </h3>
+
+      <div class="user-list section">
+
+        ${
+          rooms.length
+            ? rooms.map(
+                room => `
+                  <div class="user-row">
+
+                    <div>
+
+                      <b>
+                        ${esc(room.name)}
+                      </b>
+
+                      <div class="muted">
+                        房間代碼：
+                        ${esc(room.code)}
+                        · DM：
+                        ${esc(room.owner_username)}
+                      </div>
+
+                    </div>
+
+                    <div>
+
+                      <span class="badge">
+                        ${room.member_count} 人
+                      </span>
+
+                    </div>
+
+                    <div>
+
+                      <span class="badge">
+                        ${esc(room.status)}
+                      </span>
+
+                    </div>
+
+                  </div>
+                `
+              ).join('')
+            : `
+              <div class="muted">
+                沒有房間。
+              </div>
+            `
+        }
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+
+/* =========================================================
+   CHARACTER EDIT
+========================================================= */
+
+function professionOptions(category, selected=''){
+  const items=(state.professions||[]).filter(item=>item.category===category||item.category==='both');
+  const hasSelected=items.some(item=>item.name===selected);
+  const legacy=selected && selected!=='未設定' && !hasSelected
+    ? `<option value="${esc(selected)}" selected>${esc(selected)}（舊資料）</option>`
+    : '';
+  return `<option value="">未設定</option>`+legacy+items.map(item=>`<option value="${esc(item.name)}" ${item.name===selected?'selected':''}>${esc(item.name)} · ${esc(item.rank||'G')}</option>`).join('');
+}
+
+function openMyCharacterEditor(){
+  const character=state.myCharacter;
+  if(!character){toast('找不到角色卡');return;}
+
+  const fifth=character.faction==='西國'?'faith':'great_way';
+  const identityField=character.faction==='西國'?'faiths':'great_ways';
+  const identityLabel=character.faction==='西國'?'信仰之神':'所行之道';
+  const fields=['agility','strength','constitution','spirit',fifth];
+  const totalPool=fields.reduce((sum,field)=>sum+(Number(character[field])||0),0)+(Number(character.attribute_points)||0);
+  const subs=Array.isArray(character.sub_classes)?character.sub_classes:[];
+
+  $('#modalTitle').textContent='修改我的角色卡';
+  $('#modalBody').innerHTML=`
+    <div class="field"><label>角色名稱</label><input id="my_name" value="${esc(character.name)}"></div>
+    <div class="edit-grid">
+      <div class="field"><label>主職業</label><select id="my_main_class">${professionOptions('main',character.main_class)}</select></div>
+      ${[0,1,2].map(i=>`<div class="field"><label>副職業 ${i+1}</label><select id="my_sub_${i}">${professionOptions('sub',subs[i]||'')}</select></div>`).join('')}
+    </div>
+    <div class="field"><label>${identityLabel}（每行一個）</label><textarea id="my_identity" rows="4">${esc((Array.isArray(character[identityField])?character[identityField]:[]).join('\n'))}</textarea></div>
+    <div class="attribute-points-box">總可分配點數：<b>${totalPool}</b> · 剩餘：<b id="my_remaining">${Number(character.attribute_points)||0}</b></div>
+    <div class="attribute-editor">
+      <div class="field"><label>力量</label><input class="my-attr" id="my_strength" type="number" min="0" value="${Number(character.strength)||0}"></div>
+      <div class="field"><label>敏捷</label><input class="my-attr" id="my_agility" type="number" min="0" value="${Number(character.agility)||0}"></div>
+      <div class="field"><label>體質</label><input class="my-attr" id="my_constitution" type="number" min="0" value="${Number(character.constitution)||0}"></div>
+      <div class="field"><label>精神</label><input class="my-attr" id="my_spirit" type="number" min="0" value="${Number(character.spirit)||0}"></div>
+      <div class="field"><label>${identityLabel}第五維</label><input class="my-attr" id="my_fifth" type="number" min="0" value="${Number(character[fifth])||0}"></div>
+    </div>
+    <div id="myEditError" class="error"></div>`;
+
+  const calc=()=>{
+    const used=['#my_strength','#my_agility','#my_constitution','#my_spirit','#my_fifth'].reduce((sum,id)=>sum+Math.max(0,Number($(id).value)||0),0);
+    const remaining=totalPool-used;
+    $('#my_remaining').textContent=String(remaining);
+    $('#my_remaining').className=remaining<0?'danger-text':'';
+    return remaining;
+  };
+  $$('.my-attr').forEach(input=>input.oninput=calc);
+  $('#modal').classList.remove('hidden');
+  $('#modalCancel').onclick=closeModal;
+  $('#modalOk').onclick=async()=>{
+    try{
+      const remaining=calc();
+      if(remaining<0) throw new Error('分配的屬性超過可用總點數');
+      const subClasses=[0,1,2].map(i=>$(`#my_sub_${i}`).value).filter(Boolean);
+      const identity=$('#my_identity').value.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,10);
+      const body={
+        name:$('#my_name').value,
+        main_class:$('#my_main_class').value||'未設定',
+        sub_classes:subClasses,
+        strength:Number($('#my_strength').value)||0,
+        agility:Number($('#my_agility').value)||0,
+        constitution:Number($('#my_constitution').value)||0,
+        spirit:Number($('#my_spirit').value)||0,
+        [fifth]:Number($('#my_fifth').value)||0,
+        attribute_points:remaining,
+        [identityField]:identity
+      };
+      const data=await api('/api/character',{method:'PATCH',body:JSON.stringify(body)});
+      state.myCharacter=data.character;
+      closeModal();render();toast('角色卡已更新');
+    }catch(error){$('#myEditError').textContent=error.message;}
+  };
+}
+
+function openSkillPicker(){
+  const skills=state.skillTemplates||[];
+  if(!skills.length){toast('DM 還沒有建立技能資料庫');return;}
+  const categories=[...new Set(skills.map(x=>x.category||'一般'))];
+  $('#modalTitle').textContent='新增技能';
+  $('#modalBody').innerHTML=`
+    <div class="field"><label>技能類別</label><select id="pickSkillCategory">${categories.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></div>
+    <div class="field"><label>技能</label><select id="pickSkill"></select></div>
+    <div id="pickSkillPreview" class="skill-card-inline"></div>
+    <div id="pickSkillError" class="error"></div>`;
+  const refresh=()=>{
+    const category=$('#pickSkillCategory').value;
+    const list=skills.filter(x=>(x.category||'一般')===category);
+    $('#pickSkill').innerHTML=list.map(x=>`<option value="${x.id}">${esc(x.name)} · Lv.${Number(x.level)||1}</option>`).join('');
+    const show=()=>{
+      const skill=skills.find(x=>String(x.id)===String($('#pickSkill').value));
+      $('#pickSkillPreview').innerHTML=skill?`<b>${esc(skill.name)}</b><div class="muted">${esc(skill.skill_type||'active')} · ${esc(skill.category||'一般')}</div>${skill.check_name?`<div class="muted">判定：${esc(skill.check_name)}</div>`:''}${skill.damage_formula?`<div class="muted">傷害：${esc(skill.damage_formula)}</div>`:''}${skill.description?`<div class="muted">${esc(skill.description)}</div>`:''}${skill.summon_tag?'<div class="muted">標籤：召喚</div>':''}`:'沒有技能';
+    };
+    $('#pickSkill').onchange=show;show();
+  };
+  $('#pickSkillCategory').onchange=refresh;refresh();
+  $('#modal').classList.remove('hidden');
+  $('#modalCancel').onclick=closeModal;
+  $('#modalOk').onclick=async()=>{
+    try{
+      const templateId=Number($('#pickSkill').value);if(!templateId)throw new Error('請選擇技能');
+      const data=await api('/api/character/skills/from-template',{method:'POST',body:JSON.stringify({template_id:templateId})});
+      state.myCharacter=data.character;closeModal();render();toast('技能已加入角色卡');
+    }catch(error){$('#pickSkillError').textContent=error.message;}
+  };
+}
+
+function openCharacterEditor(character){
+
+  $('#modalTitle').textContent =
+    `修改角色卡：${character.name}`;
+
+  $('#modalBody').innerHTML = `
+
+    <div class="muted">
+      帳號：
+      @${esc(character.username)}
+    </div>
+
+    <div class="edit-grid section">
+
+      <div class="field">
+        <label>角色名稱</label>
+        <input
+          id="edit_name"
+          value="${esc(character.name)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>陣營</label>
+        <select id="edit_faction">
+          <option
+            value="東國"
+            ${
+              character.faction === '東國'
+                ? 'selected'
+                : ''
+            }
+          >
+            東國
+          </option>
+
+          <option
+            value="西國"
+            ${
+              character.faction === '西國'
+                ? 'selected'
+                : ''
+            }
+          >
+            西國
+          </option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>階級</label>
+        <input
+          id="edit_tier"
+          type="number"
+          min="0"
+          value="${Number(character.tier)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>等級</label>
+        <input
+          id="edit_level"
+          type="number"
+          min="0"
+          value="${Number(character.level)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>主職業</label>
+        <input
+          id="edit_main_class"
+          value="${esc(character.main_class || '')}"
+        >
+      </div>
+
+      <div class="field">
+        <label>大道名稱</label>
+        <input
+          id="edit_great_way_name"
+          value="${esc(character.great_way_name || '')}"
+        >
+      </div>
+
+      <div class="field">
+        <label>大道等級</label>
+        <input
+          id="edit_great_way"
+          type="number"
+          min="0"
+          value="${Number(character.great_way)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>${character.faction === '西國' ? '信仰之神（每行一個）' : '所行之道（每行一個）'}</label>
+        <textarea id="edit_paths">${
+          (
+            character.faction === '西國'
+              ? (Array.isArray(character.faiths) ? character.faiths : [])
+              : (Array.isArray(character.great_ways) ? character.great_ways : [])
+          ).join('\n')
+        }</textarea>
+      </div>
+
+      <div class="field">
+        <label>元素親和（JSON）</label>
+        <textarea id="edit_element_affinity">${
+          JSON.stringify(character.element_affinity || {}, null, 2)
+        }</textarea>
+      </div>
+
+      <div class="field">
+        <label>幸運</label>
+        <input
+          id="edit_luck"
+          type="number"
+          min="0"
+          value="${Number(character.luck)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>力量</label>
+        <input
+          id="edit_strength"
+          type="number"
+          min="0"
+          value="${Number(character.strength)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>敏捷</label>
+        <input
+          id="edit_agility"
+          type="number"
+          min="0"
+          value="${Number(character.agility)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>體質</label>
+        <input
+          id="edit_constitution"
+          type="number"
+          min="0"
+          value="${Number(character.constitution)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>精神</label>
+        <input
+          id="edit_spirit"
+          type="number"
+          min="0"
+          value="${Number(character.spirit)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>屬性點</label>
+        <input
+          id="edit_attribute_points"
+          type="number"
+          min="0"
+          value="${Number(character.attribute_points)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>經驗</label>
+        <input
+          id="edit_experience"
+          type="number"
+          min="0"
+          value="${Number(character.experience)||0}"
+        >
+      </div>
+
+      <div class="field">
+        <label>技能點</label>
+        <input
+          id="edit_skill_points"
+          type="number"
+          min="0"
+          value="${Number(character.skill_points)||0}"
+        >
+      </div>
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        副職業
+        （每行一個，最多 3 個）
+      </label>
+
+      <textarea id="edit_sub_classes">${
+        Array.isArray(character.sub_classes)
+          ? character.sub_classes.join('\n')
+          : ''
+      }</textarea>
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        技能 JSON
+      </label>
+      <div class="muted" style="margin-bottom:8px;">
+        可使用：
+        check＝判定；
+        damage_formula＝傷害判定（例如 1D力量 × 1.5）；
+        extra_tag＝額外技能標籤；
+        summon_tag=true 表示召喚技能。
+      </div>
+
+      <textarea id="edit_skills">${
+        JSON.stringify(
+          character.skills || [],
+          null,
+          2
+        )
+      }</textarea>
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        裝備 JSON
+      </label>
+
+      <textarea id="edit_equipment">${
+        JSON.stringify(
+          character.equipment || [],
+          null,
+          2
+        )
+      }</textarea>
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        武器 JSON
+      </label>
+
+      <textarea id="edit_weapons">${
+        JSON.stringify(
+          character.weapons || [],
+          null,
+          2
+        )
+      }</textarea>
+
+    </div>
+
+    <div
+      id="editError"
+      class="error"
+    ></div>
+
+  `;
+
+  $('#modal')
+    .classList
+    .remove('hidden');
+
+  $('#modalCancel').onclick =
+    closeModal;
+
+  $('#modalOk').onclick =
+    async () => {
+
+      try{
+
+        const subClasses =
+          $('#edit_sub_classes')
+            .value
+            .split('\n')
+            .map(x => x.trim())
+            .filter(Boolean)
+            .slice(0,3);
+
+        const parseJsonArray =
+          id => {
+
+            const text =
+              $(id).value.trim();
+
+            if(!text){
+              return [];
+            }
+
+            const value =
+              JSON.parse(text);
+
+            if(!Array.isArray(value)){
+              throw new Error(
+                '技能、裝備、武器必須是 JSON 陣列'
+              );
+            }
+
+            return value;
+          };
+
+        const body = {
+
+          name:
+            $('#edit_name').value,
+
+          faction:
+            $('#edit_faction').value,
+
+          tier:
+            Number($('#edit_tier').value),
+
+          level:
+            Number($('#edit_level').value),
+
+          main_class:
+            $('#edit_main_class').value,
+
+          great_way_name:
+            $('#edit_great_way_name').value,
+
+          great_way:
+            Number($('#edit_great_way').value),
+
+          great_ways:
+            $('#edit_paths')
+              ? $('#edit_paths').value
+                  .split('\n')
+                  .map(x => x.trim())
+                  .filter(Boolean)
+              : [],
+
+          faiths:
+            $('#edit_paths')
+              ? $('#edit_paths').value
+                  .split('\n')
+                  .map(x => x.trim())
+                  .filter(Boolean)
+              : [],
+
+          element_affinity:
+            $('#edit_element_affinity')
+              ? JSON.parse($('#edit_element_affinity').value || '{}')
+              : {},
+
+          luck:
+            Number($('#edit_luck').value),
+
+          strength:
+            Number($('#edit_strength').value),
+
+          agility:
+            Number($('#edit_agility').value),
+
+          constitution:
+            Number($('#edit_constitution').value),
+
+          spirit:
+            Number($('#edit_spirit').value),
+
+          attribute_points:
+            Number(
+              $('#edit_attribute_points').value
+            ),
+
+          experience:
+            Number(
+              $('#edit_experience').value
+            ),
+
+          skill_points:
+            Number(
+              $('#edit_skill_points').value
+            ),
+
+          sub_classes:
+            subClasses,
+
+          skills:
+            parseJsonArray('#edit_skills'),
+
+          equipment:
+            parseJsonArray('#edit_equipment'),
+
+          weapons:
+            parseJsonArray('#edit_weapons')
+        };
+
+        await api(
+          `/api/admin/characters/${character.id}`,
+          {
+            method:'PATCH',
+            body:
+              JSON.stringify(body)
+          }
+        );
+
+        await loadAdminCharacters();
+
+        closeModal();
+
+        render();
+
+        toast(
+          '角色卡已修改'
+        );
+
+      }catch(error){
+
+        $('#editError')
+          .textContent =
+            error.message;
+      }
+
+    };
+}
+
+
+/* =========================================================
+   DELETE ACCOUNT
+========================================================= */
+
+async function deleteUser(
+  userId,
+  username
+){
+
+  if(
+    String(userId) ===
+    String(state.user.id)
+  ){
+
+    toast(
+      '不能刪除目前登入中的 DM'
+    );
+
+    return;
+  }
+
+  const confirmed =
+    window.confirm(
+      `確定要刪除帳號「${username}」嗎？\n\n此操作會刪除該玩家的永久角色卡，而且無法復原。`
+    );
+
+  if(!confirmed){
+    return;
+  }
+
+  try{
+
+    await api(
+      `/api/admin/users/${userId}`,
+      {
+        method:'DELETE'
+      }
+    );
+
+    await loadAdminData();
+
+    render();
+
+    toast(
+      `帳號「${username}」已刪除`
+    );
+
+  }catch(error){
+
+    toast(
+      error.message
+    );
+  }
+}
+
+
+/* =========================================================
+   ROOM
+========================================================= */
+
+function roomHTML(){
+
+  if(!state.room){
+
+    return `
+
+      <div class="card pad">
+
+        <h2>
+          還沒有加入房間
+        </h2>
+
+        <div class="muted">
+          回到首頁建立或加入房間。
+        </div>
+
+      </div>
+
+    `;
+  }
+
+  const room =
+    state.room.room;
+
+  return `
+
+    <div class="card pad hero">
+
+      <div>
+
+        <div class="muted">
+          ${esc(room.name)}
+        </div>
+
+        <h2>
+          ${
+            room.status === 'active'
+              ? '⚔️ 跑團進行中'
+              : '🕯️ 等待開團'
+          }
+        </h2>
+
+        <div class="muted">
+          房間代碼：
+          <b>${esc(room.code)}</b>
+          · 第 ${room.round} 回合
+        </div>
+
+      </div>
+
+      <div class="actions">
+
+        ${
+          String(room.owner_id) ===
+          String(state.user.id) &&
+          room.status === 'lobby'
+            ? `
+              <button
+                class="btn"
+                id="startCampaign"
+              >
+                ▶ 開始跑團
+              </button>
+            `
+            : ''
+        }
+
+        ${
+          String(room.owner_id) ===
+          String(state.user.id) &&
+          room.status === 'active'
+            ? `
+              <button
+                class="btn secondary"
+                id="nextTurn"
+              >
+                下一回合
+              </button>
+            `
+            : ''
+        }
+
+      </div>
+
+    </div>
+
+
+    <div class="grid2 section">
+
+      <div class="card chat">
+
+        <div
+          id="chatLog"
+          class="chat-log"
+        >
+          ${chatHTML()}
+        </div>
+
+        <form
+          id="chatForm"
+          class="chat-input"
+        >
+
+          <input
+            id="chatInput"
+            placeholder="輸入訊息…"
+            maxlength="1000"
+          >
+
+          <button class="btn">
+            送出
+          </button>
+
+        </form>
+
+      </div>
+
+
+      <div class="card pad">
+
+        <h3>
+          本場玩家
+        </h3>
+
+        <div class="member-list">
+          ${membersHTML()}
+        </div>
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+
+/* =========================================================
+   MY CHARACTER
+========================================================= */
+
+function characterHTML(){
+
+  const character =
+    state.myCharacter;
+
+  if(!character){
+
+    return `
+
+      <div class="card pad">
+
+        <h2>
+          我的角色卡
+        </h2>
+
+        <div class="muted">
+          你目前沒有角色卡。
+          角色卡不需要加入房間才存在。
+        </div>
+
+      </div>
+
+    `;
+  }
+
+  return `
+
+    <div class="card pad">
+
+      <div class="hero">
+
+        <div>
+
+          <div class="muted">
+            永久角色卡
+          </div>
+
+          <h2>
+            ${esc(character.name)}
+          </h2>
+
+          <div class="muted">
+            @${esc(state.user.username)}
+            · Lv.${Number(character.level)||0}
+          </div>
+
+        </div>
+
+        <div class="actions">
+          <button class="btn secondary" id="editMyCharacter">✏️ 修改角色卡</button>
+          <button class="btn" id="addSkillFromLibrary">＋ 新增技能</button>
+        </div>
+
+      </div>
+
+
+      <div class="stat-grid section">
+
+        <div class="stat">
+          <div class="muted">
+            力量
+          </div>
+          <div class="n">
+            ${Number(character.strength)||0}
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="muted">
+            敏捷
+          </div>
+          <div class="n">
+            ${Number(character.agility)||0}
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="muted">
+            體質
+          </div>
+          <div class="n">
+            ${Number(character.constitution)||0}
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="muted">
+            精神
+          </div>
+          <div class="n">
+            ${Number(character.spirit)||0}
+          </div>
+        </div>
+
+      </div>
+
+
+      <div class="section">
+
+        <h3>
+          基本資料
+        </h3>
+
+        <div class="character-details">
+
+          <div>
+            陣營：
+            <b>${esc(character.faction)}</b>
+          </div>
+
+          <div>
+            主職業：
+            <b>${esc(character.main_class)}</b>
+          </div>
+
+          <div>
+            副職業：
+            <b>${Array.isArray(character.sub_classes) && character.sub_classes.length ? character.sub_classes.map(esc).join('、') : '無'}</b>
+          </div>
+
+          <div>
+            <span class="muted">
+              ${character.faction === '西國' ? '信仰之神' : '所行之道'}：
+            </span>
+            <b>
+              ${
+                character.faction === '西國'
+                  ? (
+                      Array.isArray(character.faiths)
+                        ? character.faiths.map(esc).join('、') || '未設定'
+                        : (character.great_way_name ? esc(character.great_way_name) : '未設定')
+                    )
+                  : (
+                      Array.isArray(character.great_ways)
+                        ? character.great_ways.map(esc).join('、') || '未設定'
+                        : (character.great_way_name ? esc(character.great_way_name) : '未設定')
+                    )
+              }
+            </b>
+          </div>
+
+          <div>
+            第五維：
+            <b>
+              ${Number(character.faction === '西國' ? character.faith : character.great_way)||0}
+            </b>
+          </div>
+
+          <div>
+            回合數：
+            <b>${Number(character.round_count)||1}</b>
+          </div>
+
+          <div>
+            仇恨值：
+            <b>${Number(character.combat_hatred)||100}</b>
+          </div>
+
+          <div>
+            幸運：
+            <b>
+              ${Number(character.luck)||0}
+            </b>
+          </div>
+
+          <div>
+            屬性點：
+            <b>
+              ${Number(character.attribute_points)||0}
+            </b>
+          </div>
+
+          <div>
+            經驗：
+            <b>
+              ${Number(character.experience)||0}
+            </b>
+          </div>
+
+          <div>
+            技能點：
+            <b>
+              ${Number(character.skill_points)||0}
+            </b>
+          </div>
+
+        </div>
+
+      </div>
+
+
+
+      <div class="section">
+        <h3>元素親和</h3>
+        <div class="character-info">
+          ${['暗','光','金','木','水','火','土'].map(
+            element => `
+              <div class="mini-stat">
+                <span>${element}</span>
+                <strong>
+                  ${Number((character.element_affinity || {})[element]) || 0}
+                </strong>
+              </div>
+            `
+          ).join('')}
+        </div>
+      </div>
+
+      <div class="section">
+
+        <h3>
+          技能
+        </h3>
+
+        ${
+          Array.isArray(character.skills) &&
+          character.skills.length
+            ? character.skills.map(
+                skill => `
+                  <div class="event">
+                    <b>
+                      ${esc(skill.name || '未命名技能')}
+                    </b>
+                    · Lv.${Number(skill.level)||1}
+
+                    ${
+                      skill.check
+                        ? `<div class="muted">判定：${esc(skill.check)}</div>`
+                        : ''
+                    }
+
+                    ${
+                      skill.damage_formula
+                        ? `<div class="muted">傷害判定：${esc(skill.damage_formula)}</div>`
+                        : ''
+                    }
+
+                    ${
+                      skill.extra_tag
+                        ? `<div class="muted">額外標籤：${esc(skill.extra_tag)}</div>`
+                        : ''
+                    }
+
+                    ${
+                      skill.summon_tag
+                        ? `<div class="muted">標籤：召喚</div>`
+                        : ''
+                    }
+
+                    ${
+                      skill.description
+                        ? `<div class="muted">
+                             ${esc(skill.description)}
+                           </div>`
+                        : ''
+                    }
+                    <div class="actions" style="margin-top:8px">
+                      <button class="btn ghost small remove-my-skill" data-skill-id="${esc(skill.id || '')}">移除技能</button>
+                    </div>
+                  </div>
+                `
+              ).join('')
+            : `
+              <div class="muted">
+                尚無技能。
+              </div>
+            `
+        }
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+
+/* =========================================================
+   DICE
+========================================================= */
+
+function diceHTML(){
+
+  return `
+
+    <div class="card pad">
+
+      <h2>
+        骰子
+      </h2>
+
+      <div class="muted">
+        支援 1d20、2d6+3 等骰式。
+      </div>
+
+      ${
+        state.room
+          ? `
+            <div class="field">
+              <label>骰式</label>
+              <input
+                id="diceNotation"
+                value="1d20"
+              >
+            </div>
+
+            <div class="field">
+              <label>標籤</label>
+              <input
+                id="diceLabel"
+                value="一般檢定"
+              >
+            </div>
+
+            <button
+              class="btn"
+              id="rollDice"
+            >
+              🎲 擲骰
+            </button>
+          `
+          : `
+            <div class="section muted">
+              請先加入房間才能進行即時骰子。
+            </div>
+          `
+      }
+
+    </div>
+
+  `;
+}
+
+
+/* =========================================================
+   EVENT / CHAT
+========================================================= */
+
+function chatHTML(){
+  const events=state.room?.events||[];
+  const myName=state.user?.username||'';
+  return events.filter(event=>event.type==='chat').map(event=>{
+    const mine=String(event.username||'')===String(myName);
+    return `<div class="chat-row ${mine?'mine':'other'}"><div class="chat-bubble"><div class="chat-meta">${mine?'你':esc(event.username||'玩家')}</div>${esc(event.payload?.text||'')}</div></div>`;
+  }).join('')||'<div class="muted">開始聊天吧。</div>';
+}
+
+
+function membersHTML(){
+
+  return (
+    state.room?.members || []
+  )
+    .map(
+      member => `
+
+        <div class="member">
+
+          <div>
+
+            <div>
+
+              <span
+                class="online-dot ${
+                  state.online.includes(
+                    member.id
+                  )
+                    ? 'on'
+                    : ''
+                }"
+              ></span>
+
+              ${esc(member.display_name)}
+
+            </div>
+
+            <div class="muted">
+              ${member.hp}/${member.max_hp}
+              HP
+              ·
+              ${member.role === 'gm'
+                ? 'DM'
+                : '玩家'}
+            </div>
+
+          </div>
+
+          <span
+            class="badge ${
+              member.role === 'gm'
+                ? 'admin'
+                : 'player'
+            }"
+          >
+            ${
+              member.role === 'gm'
+                ? 'DM'
+                : '玩家'
+            }
+          </span>
+
+        </div>
+
+      `
+    )
+    .join('')
+    ||
+    '<div class="muted">沒有玩家</div>';
+}
+
+
+/* =========================================================
+   VIEW BINDING
+========================================================= */
+
+function bindView(){
+
+  $$('[data-view]')
+    .forEach(
+      button => {
+
+        button.onclick =
+          () => {
+
+            const target =
+              button.dataset.view;
+
+            if(
+              target === 'admin' &&
+              !state.user?.is_admin
+            ){
+              toast(
+                '只有全站 DM 可以進入管理中心'
+              );
+
+              return;
+            }
+
+            state.view =
+              target;
+
+            render();
+
+          };
+
+      }
+    );
+
+
+  $$('[data-admin-view]')
+    .forEach(
+      button => {
+
+        button.onclick =
+          () => {
+
+            state.adminView =
+              button.dataset.adminView;
+
+            render();
+
+          };
+
+      }
+    );
+
+
+
+  const editMyCharacter=$('#editMyCharacter');
+  if(editMyCharacter) editMyCharacter.onclick=openMyCharacterEditor;
+
+  const addSkillFromLibrary=$('#addSkillFromLibrary');
+  if(addSkillFromLibrary) addSkillFromLibrary.onclick=openSkillPicker;
+
+  $$('.remove-my-skill').forEach(button=>{
+    button.onclick=async()=>{
+      if(!window.confirm('確定從角色卡移除這個技能？')) return;
+      try{
+        const data=await api(`/api/character/skills/${encodeURIComponent(button.dataset.skillId)}`,{method:'DELETE'});
+        state.myCharacter=data.character;render();toast('技能已移除');
+      }catch(error){toast(error.message);}
+    };
+  });
+
+  const skillTemplateForm=$('#skillTemplateForm');
+  if(skillTemplateForm){
+    skillTemplateForm.onsubmit=async event=>{
+      event.preventDefault();
+      try{
+        await api('/api/admin/skill-templates',{method:'POST',body:JSON.stringify({name:$('#stName').value,category:$('#stCategory').value,skill_type:$('#stType').value,level:Number($('#stLevel').value)||1,check_name:$('#stCheck').value,damage_formula:$('#stDamage').value,extra_tag:$('#stExtraTag').value,summon_tag:$('#stSummon').checked,description:$('#stDescription').value})});
+        await loadSkillTemplates();render();toast('技能已加入資料庫');
+      }catch(error){toast(error.message);}
+    };
+  }
+
+  $$('.delete-skill-template').forEach(button=>{
+    button.onclick=async()=>{
+      if(!window.confirm('確定刪除此技能資料？已經加到角色卡的技能不會自動消失。'))return;
+      try{await api(`/api/admin/skill-templates/${button.dataset.id}`,{method:'DELETE'});await loadSkillTemplates();render();toast('技能資料已刪除');}catch(error){toast(error.message);}
+    };
+  });
+
+  const professionForm=$('#professionForm');
+  if(professionForm){
+    professionForm.onsubmit=async event=>{
+      event.preventDefault();
+      try{await api('/api/admin/professions',{method:'POST',body:JSON.stringify({name:$('#pfName').value,category:$('#pfCategory').value,rank:$('#pfRank').value,description:$('#pfDescription').value})});await loadProfessions();render();toast('職業已加入資料庫');}catch(error){toast(error.message);}
+    };
+  }
+
+  $$('.delete-profession').forEach(button=>{
+    button.onclick=async()=>{
+      if(!window.confirm('確定刪除此職業資料？角色卡上已選擇的名稱會保留。'))return;
+      try{await api(`/api/admin/professions/${button.dataset.id}`,{method:'DELETE'});await loadProfessions();render();toast('職業資料已刪除');}catch(error){toast(error.message);}
+    };
+  });
+
+  const summonTemplateForm=$('#summonTemplateForm');
+  if(summonTemplateForm){
+    summonTemplateForm.onsubmit=async event=>{
+      event.preventDefault();
+      try{await api('/api/admin/summon-templates',{method:'POST',body:JSON.stringify({name:$('#smName').value,description:$('#smDescription').value,growth_mode:$('#smGrowth').value,control_mode:$('#smControl').value,behavior_mode:$('#smBehavior').value,self_ai_level:Number($('#smAi').value)||0,language_level:Number($('#smLanguage').value)||0,speech_enabled:$('#smSpeech').checked,loyalty:Number($('#smLoyalty').value)||0})});await loadSummonTemplates();render();toast('召喚物模板已建立');}catch(error){toast(error.message);}
+    };
+  }
+
+  $$('.delete-summon-template').forEach(button=>{
+    button.onclick=async()=>{
+      if(!window.confirm('確定刪除此召喚物模板？'))return;
+      try{await api(`/api/admin/summon-templates/${button.dataset.id}`,{method:'DELETE'});await loadSummonTemplates();render();toast('召喚物模板已刪除');}catch(error){toast(error.message);}
+    };
+  });
+
+  const refreshTasks = $('#refreshTasks');
+  if(refreshTasks){
+    refreshTasks.onclick = async () => {
+      try{
+        await loadPublicTasks();
+        render();
+      }catch(error){ toast(error.message); }
+    };
+  }
+
+  const refreshMyTasks = $('#refreshMyTasks');
+  if(refreshMyTasks){
+    refreshMyTasks.onclick = async () => {
+      try{
+        await loadMyTasks();
+        render();
+      }catch(error){ toast(error.message); }
+    };
+  }
+
+  $$('.accept-task').forEach(button => {
+    button.onclick = async () => {
+      try{
+        await api(`/api/tasks/${button.dataset.taskId}/accept`, {method:'POST'});
+        await Promise.all([loadPublicTasks(), loadMyTasks()]);
+        render();
+        toast('已接受任務');
+      }catch(error){ toast(error.message); }
+    };
+  });
+
+  const taskCreateForm = $('#taskCreateForm');
+  if(taskCreateForm){
+    taskCreateForm.onsubmit = async event => {
+      event.preventDefault();
+      try{
+        let rewards = {};
+        try{
+          rewards = JSON.parse($('#taskRewards').value || '{}');
+        }catch{
+          throw new Error('獎勵 JSON 格式錯誤');
+        }
+
+        await api('/api/admin/tasks', {
+          method:'POST',
+          body:JSON.stringify({
+            title:$('#taskTitle').value,
+            task_type:$('#taskType').value,
+            target_user_id:Number($('#taskTargetUser').value || 0),
+            min_tier:Number($('#taskMinTier').value || 1),
+            description:$('#taskDescription').value,
+            requirements:$('#taskRequirements').value,
+            rewards
+          })
+        });
+
+        await loadAdminTasks();
+        render();
+        toast('任務已發布');
+      }catch(error){ toast(error.message); }
+    };
+  }
+
+  $$('.complete-task').forEach(button => {
+    button.onclick = async () => {
+      let userId = Number(button.dataset.userId || 0);
+      if(!userId){
+        const input = window.prompt('請輸入要完成此公共任務的玩家 ID');
+        if(input === null) return;
+        userId = Number(input || 0);
+      }
+      if(!userId){
+        toast('玩家 ID 不正確');
+        return;
+      }
+      if(!window.confirm('確定標記此玩家完成任務並發放獎勵？')) return;
+      try{
+        await api(`/api/admin/tasks/${button.dataset.taskId}/complete`, {
+          method:'POST',
+          body:JSON.stringify({user_id:userId})
+        });
+        await Promise.all([loadAdminTasks(), loadPublicTasks(), loadMyTasks()]);
+        render();
+        toast('任務已完成並發放獎勵');
+      }catch(error){ toast(error.message); }
+    };
+  });
+
+  $$('.delete-task').forEach(button => {
+    button.onclick = async () => {
+      if(!window.confirm('確定刪除此任務？')) return;
+      try{
+        await api(`/api/admin/tasks/${button.dataset.taskId}`, {method:'DELETE'});
+        await loadAdminTasks();
+        render();
+        toast('任務已刪除');
+      }catch(error){ toast(error.message); }
+    };
+  });
+
+  const createRoom =
+    $('#createRoom');
+
+  if(createRoom){
+
+    createRoom.onclick =
+      () =>
+        openPrompt(
+          '建立跑團',
+          '跑團名稱',
+          '新的跑團',
+          async name => {
+
+            const data =
+              await api(
+                '/api/rooms',
+                {
+                  method:'POST',
+                  body:
+                    JSON.stringify({
+                      name
+                    })
+                }
+              );
+
+            state.room =
+              data;
+
+            state.view =
+              'room';
+
+            state.socket.emit(
+              'room:enter',
+              {
+                roomId:
+                  data.room.id
+              }
+            );
+
+            render();
+
+          }
+        );
+  }
+
+
+  const joinRoom =
+    $('#joinRoom');
+
+  if(joinRoom){
+
+    joinRoom.onclick =
+      () =>
+        openPrompt(
+          '加入房間',
+          '6 碼房間代碼',
+          '',
+          async code => {
+
+            const data =
+              await api(
+                '/api/rooms/join',
+                {
+                  method:'POST',
+                  body:
+                    JSON.stringify({
+                      code:
+                        code
+                          .trim()
+                          .toUpperCase()
+                    })
+                }
+              );
+
+            state.room =
+              data;
+
+            state.view =
+              'room';
+
+            state.socket.emit(
+              'room:enter',
+              {
+                roomId:
+                  data.room.id
+              }
+            );
+
+            render();
+
+          }
+        );
+  }
+
+
+  const openAdmin =
+    $('#openAdmin');
+
+  if(openAdmin){
+
+    openAdmin.onclick =
+      () => {
+
+        state.view =
+          'admin';
+
+        render();
+
+      };
+  }
+
+
+  const refreshAdmin =
+    $('#refreshAdmin');
+
+  if(refreshAdmin){
+
+    refreshAdmin.onclick =
+      async () => {
+
+        try{
+
+          await loadAdminData();
+
+          render();
+
+          toast(
+            '全站資料已重新整理'
+          );
+
+        }catch(error){
+
+          toast(
+            error.message
+          );
+
+        }
+
+      };
+  }
+
+
+  $$('.edit-character')
+    .forEach(
+      button => {
+
+        button.onclick =
+          () => {
+
+            const character =
+              state.adminCharacters
+                .find(
+                  item =>
+                    String(item.id) ===
+                    String(button.dataset.id)
+                );
+
+            if(!character){
+              toast(
+                '找不到角色卡'
+              );
+
+              return;
+            }
+
+            openCharacterEditor(
+              character
+            );
+
+          };
+
+      }
+    );
+
+
+  $$('.delete-user')
+    .forEach(
+      button => {
+
+        button.onclick =
+          () =>
+            deleteUser(
+              button.dataset.userId,
+              button.dataset.username
+            );
+
+      }
+    );
+
+
+  const startCampaign =
+    $('#startCampaign');
+
+  if(startCampaign){
+
+    startCampaign.onclick =
+      async () => {
+
+        try{
+
+          const data =
+            await api(
+              `/api/rooms/${state.room.room.id}/start`,
+              {
+                method:'POST'
+              }
+            );
+
+          state.room =
+            data;
+
+          render();
+
+        }catch(error){
+
+          toast(
+            error.message
+          );
+
+        }
+
+      };
+  }
+
+
+  const nextTurn =
+    $('#nextTurn');
+
+  if(nextTurn){
+
+    nextTurn.onclick =
+      async () => {
+
+        try{
+
+          const data =
+            await api(
+              `/api/rooms/${state.room.room.id}/next-turn`,
+              {
+                method:'POST'
+              }
+            );
+
+          state.room =
+            data;
+
+          render();
+
+        }catch(error){
+
+          toast(
+            error.message
+          );
+
+        }
+
+      };
+  }
+
+
+  const chatForm =
+    $('#chatForm');
+
+  if(chatForm){
+
+    chatForm.onsubmit =
+      event => {
+
+        event.preventDefault();
+
+        const input =
+          $('#chatInput');
+
+        const text =
+          input.value.trim();
+
+        if(
+          text &&
+          state.socket &&
+          state.room
+        ){
+
+          state.socket.emit(
+            'chat:send',
+            {
+              roomId:
+                state.room.room.id,
+
+              text
+            }
+          );
+
+          input.value =
+            '';
+        }
+
+      };
+  }
+
+
+  const rollDice =
+    $('#rollDice');
+
+  if(rollDice){
+
+    rollDice.onclick =
+      () => {
+
+        if(
+          !state.socket ||
+          !state.room
+        ){
+          toast(
+            '請先加入房間'
+          );
+
+          return;
+        }
+
+        state.socket.emit(
+          'dice:roll',
+          {
+            roomId:
+              state.room.room.id,
+
+            notation:
+              $('#diceNotation').value,
+
+            label:
+              $('#diceLabel').value
+          }
+        );
+
+      };
+  }
+}
+
+
+/* =========================================================
+   MODAL
+========================================================= */
+
+function closeModal(){
+
+  $('#modal')
+    .classList
+    .add('hidden');
+}
+
+
+function openPrompt(
+  title,
+  label,
+  value,
+  callback
+){
+
+  $('#modalTitle')
+    .textContent =
+      title;
+
+  $('#modalBody')
+    .innerHTML = `
+
+      <div class="field">
+
+        <label>
+          ${esc(label)}
+        </label>
+
+        <input
+          id="modalInput"
+          value="${esc(value)}"
+          autofocus
+        >
+
+      </div>
+
+    `;
+
+  $('#modal')
+    .classList
+    .remove('hidden');
+
+  $('#modalCancel').onclick =
+    closeModal;
+
+  $('#modalOk').onclick =
+    async () => {
+
+      try{
+
+        const value =
+          $('#modalInput')
+            .value
+            .trim();
+
+        await callback(
+          value
+        );
+
+        closeModal();
+
+      }catch(error){
+
+        toast(
+          error.message
+        );
+
+      }
+
+    };
+}
+
+
+/* =========================================================
+   AUTH UI
+========================================================= */
+
+$$('.auth-tabs .tab')
+  .forEach(
+    tab => {
+
+      tab.onclick =
+        () => {
+
+          $$('.auth-tabs .tab')
+            .forEach(
+              item =>
+                item.classList.remove(
+                  'active'
+                )
+            );
+
+          tab.classList.add(
+            'active'
+          );
+
+          state.authMode =
+            tab.dataset.auth;
+
+          $('#authSubmit')
+            .textContent =
+              state.authMode === 'login'
+                ? '登入'
+                : '註冊';
+
+          $('#password')
+            .autocomplete =
+              state.authMode === 'login'
+                ? 'current-password'
+                : 'new-password';
+
+        };
+
+    }
+  );
+
+
+$('#authForm')
+  .onsubmit =
+    submitAuth;
+
+
+$('#logout')
+  .onclick =
+    () => {
+
+      if(state.socket){
+        state.socket.disconnect();
+      }
+
+      localStorage.removeItem(
+        'rpg_token'
+      );
+
+      state.token =
+        null;
+
+      location.reload();
+
+    };
+
+
+/* =========================================================
+   START
+========================================================= */
+
+boot();
+
+</script>
+
+</body>
+</html>
