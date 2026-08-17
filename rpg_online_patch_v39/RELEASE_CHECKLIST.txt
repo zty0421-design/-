@@ -1,0 +1,30 @@
+TRPG Online 發版檢查
+====================
+
+目前版本：v39
+
+【一般檢查】
+node release-check.js
+
+【連同 ZIP 一起檢查】
+node release-check.js --zip ../rpg_online_patch_v39.zip
+
+【連線已部署 PostgreSQL，執行唯讀 schema 檢查】
+node release-check.js --db
+
+【輸出文字報告】
+node release-check.js --zip ../rpg_online_patch_v39.zip --report RELEASE_CHECK_REPORT.txt
+
+檢查結果：
+- PASS：通過。
+- WARN：需要實機或已部署環境才能驗證，不會使指令失敗。
+- FAIL：不能交付；指令會以 exit code 1 結束。
+
+每次更改新版本後：
+1. 更新 VERSION.txt、server.js 的 APP_VERSION、index.html 的 application-version。
+2. 更新 Service Worker 快取名稱。
+3. 執行一般檢查。
+4. 從零建立 ZIP。
+5. 使用 --zip 再檢查一次。
+6. 有正式測試資料庫時，再執行 --db。
+7. 清楚列出真機、多玩家及正式部署中尚未驗證的項目。

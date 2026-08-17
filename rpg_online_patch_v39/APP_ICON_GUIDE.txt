@@ -1,0 +1,28 @@
+TRPG Online 應用程式圖標更換方式
+=================================
+
+本版已經設定好 favicon、Android PWA 圖標與 iPhone 主畫面圖標。
+
+【最簡單的更換方式】
+1. 準備一張正方形圖，建議原圖至少 512 × 512 px。
+2. 將它輸出成以下四個 PNG，並保持檔名不變：
+   - public/icons/favicon-32.png：32 × 32
+   - public/icons/icon-192.png：192 × 192
+   - public/icons/icon-512.png：512 × 512
+   - public/icons/apple-touch-icon.png：180 × 180
+3. 重新部署整個 public 資料夾。
+
+【圖標設計注意事項】
+- 重要圖案與文字放在中央約 70% 的安全區，避免被手機裁成圓形或圓角方形時切掉。
+- PNG 背景建議不要透明，iPhone 加到主畫面時較穩定。
+- 不要修改檔名；若修改檔名，也要同步修改 index.html 與 manifest.webmanifest。
+
+【如何安裝到手機主畫面】
+- Android Chrome：開啟網站 → 瀏覽器選單 →「安裝應用程式」或「加到主畫面」。
+- iPhone Safari：開啟網站 → 分享 →「加入主畫面」。
+- 正式網站需要使用 HTTPS；localhost 測試不受此限制。
+
+【更換後仍顯示舊圖標】
+- 手機與瀏覽器可能會暫存圖標。
+- 先移除已安裝的主畫面捷徑／應用程式，再重新加入。
+- 若仍未更新，清除該網站的瀏覽資料後再開啟。
