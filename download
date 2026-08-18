@@ -1,8 +1,0 @@
-.git
-.github
-build
-__pycache__
-*.pyc
-*.zip
-*.log
-release_check*.txt
