@@ -1,8 +1,0 @@
-TRPG Online 52-cpp.13 Render compile hotfix
-
-修正 Render/GCC 12 編譯錯誤：
-1. personal_visions 查詢有 $1/$2 兩個 bind 參數，改用 selectRows2。
-2. room_team_invites 查詢有 $1/$2 兩個 bind 參數，改用 selectRows2。
-3. release_check.py 新增 selectRows/selectRows1/selectRows2 呼叫參數數量掃描，防止相同問題回歸。
-
-本 Hotfix 不變更資料庫 schema、HTTP API、前端功能或版本資料格式。
