@@ -1,0 +1,19 @@
+TRPG Online C++ 功能備註索引
+版本：60-cpp.21
+
+本版維持「任何核心修改都以 C++ 為主」：
+- CoreService.cpp：核心認證、角色、房間、戰鬥、回合、狀態自動化與通知。
+- RuleCombatBridge.cpp：規則怪談與戰鬥雙向橋接、Boss 階段、特殊勝利條件。
+- LegacyCompat.cpp：v39 相容 API、搜尋/標籤、收藏、百科、商店進階、技能樹、批量匯入。
+- index.html：只負責介面與操作綁定；重要具名 function 均有 [前端功能備註｜...]。
+- legacy_v39_migrations.sql：PostgreSQL schema 與新增效率系統資料表。
+- FEATURE_MAP.md：HTTP API → 功能 → 程式位置，以及各版本新增功能索引。
+- GearAffixSystem.cpp：搜尋 [功能備註｜59-cpp.20；混合品階池、一般/特殊詞條分層、裝備→人偶特殊詞條規則。
+- CoreService.cpp / LegacyCompat.cpp / RuleCombatBridge.cpp：搜尋 [功能備註｜60-cpp.21；怪物五維、主動/被動技能、可選大道、Boss 階段與怪物戰鬥 AI。
+- index.html：搜尋 [前端功能備註｜60-cpp.21；DM 怪物完整戰鬥實體與玩家怪物卡顯示。
+
+修改方式：
+1. 先在 FEATURE_MAP.md 搜尋功能名稱。
+2. 核心規則優先改 C++，不要把規則塞回前端 JavaScript。
+3. 若 API/schema 有變動，同步更新 migration、FEATURE_MAP、api_parity.json。
+4. 修改完成執行 python3 release_check.py。
