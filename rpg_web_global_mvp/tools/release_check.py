@@ -1,0 +1,382 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+import collections, json, os, re, shutil, subprocess, tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PASS: list[str] = []
+FAIL: list[str] = []
+WARN: list[str] = []
+
+def ok(msg): PASS.append(msg)
+def bad(msg): FAIL.append(msg)
+def expect(cond, good, bad_msg): ok(good) if cond else bad(bad_msg)
+def read(rel): return (ROOT / rel).read_text(encoding='utf-8', errors='ignore')
+def run(cmd, cwd=ROOT): return subprocess.run(cmd, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+def norm(method, path):
+    parts=[]
+    for p in path.split('/'):
+        parts.append(':' if p.startswith(':') or re.fullmatch(r'\{\d+\}',p) else p)
+    return method.upper()+' '+'/'.join(parts)
+
+def actual_routes():
+    out=[]
+    core=read('src/CoreService.cpp')
+    for part in core.split('drogon::app().registerHandler(')[1:]:
+        p=re.search(r'^\s*"([^"]+)"',part)
+        m=re.search(r'\{drogon::(Get|Post|Put|Patch|Delete)\}\s*\)',part,re.S)
+        if p and m: out.append(norm(m.group(1),p.group(1)))
+    legacy=read('src/LegacyCompat.cpp')
+    for m in re.finditer(r'\breg[0-3]\(\s*"([^"]+)"\s*,\s*drogon::(Get|Post|Put|Patch|Delete)',legacy):
+        out.append(norm(m.group(2),m.group(1)))
+    world=read('src/WorldSystems.cpp')
+    for m in re.finditer(r'\breg[0-2]\(\s*"([^"]+)"\s*,\s*drogon::(Get|Post|Put|Patch|Delete)',world):
+        out.append(norm(m.group(2),m.group(1)))
+    engine=read('src/RuleEngine.cpp')
+    for m in re.finditer(r'\breg[01]\(\s*"([^"]+)"\s*,\s*drogon::(Get|Post|Put|Patch|Delete)',engine):
+        out.append(norm(m.group(2),m.group(1)))
+    bridge=read('src/RuleCombatBridge.cpp')
+    for part in bridge.split('drogon::app().registerHandler(')[1:]:
+        p=re.search(r'^\s*"([^"]+)"',part)
+        m=re.search(r'\{drogon::(Get|Post|Put|Patch|Delete)\}\s*\)',part,re.S)
+        if p and m: out.append(norm(m.group(1),p.group(1)))
+    gear=read('src/GearAffixSystem.cpp')
+    for m in re.finditer(r'\bregister[0-2]\(\s*"([^"]+)"\s*,\s*drogon::(Get|Post|Put|Patch|Delete)',gear):
+        out.append(norm(m.group(2),m.group(1)))
+    for m in re.finditer(r'registerAdminCrud0\(service\s*,\s*"([^"]+)"',legacy):
+        out += [norm('GET',m.group(1)),norm('POST',m.group(1))]
+    for m in re.finditer(r'registerAdminPatchDelete1\(service\s*,\s*"([^"]+)"',legacy):
+        out += [norm('PATCH',m.group(1)),norm('DELETE',m.group(1))]
+    return out
+
+def helper_call_arity_errors(source: str):
+    expected={"selectRows":2,"selectRows1":3,"selectRows2":4}
+    errors=[]
+    for name, argc_expected in expected.items():
+        needle=name+'('; pos=0
+        while True:
+            start=source.find(needle,pos)
+            if start<0: break
+            # Skip definitions.
+            prefix=source[max(0,start-80):start]
+            if re.search(r'Json::Value\s*$', prefix):
+                pos=start+len(needle); continue
+            i=start+len(needle); depth=1; quote=None; escaped=False
+            while i<len(source) and depth:
+                ch=source[i]
+                if quote:
+                    if escaped: escaped=False
+                    elif ch=='\\': escaped=True
+                    elif ch==quote: quote=None
+                else:
+                    if ch in ('"',"'"): quote=ch
+                    elif ch=='(': depth+=1
+                    elif ch==')': depth-=1
+                i+=1
+            body=source[start+len(needle):i-1]
+            level=0; quote=None; escaped=False; commas=0
+            for ch in body:
+                if quote:
+                    if escaped: escaped=False
+                    elif ch=='\\': escaped=True
+                    elif ch==quote: quote=None
+                else:
+                    if ch in ('"',"'"): quote=ch
+                    elif ch in '([{': level+=1
+                    elif ch in ')]}': level=max(0,level-1)
+                    elif ch==',' and level==0: commas+=1
+            argc=0 if not body.strip() else commas+1
+            if argc!=argc_expected:
+                line=source.count('\n',0,start)+1
+                errors.append(f'{name} line {line}: expected {argc_expected}, got {argc}')
+            pos=max(i,start+len(needle))
+    return errors
+
+def main():
+    required=[
+        'CMakeLists.txt','Dockerfile','render.yaml','README.md',
+        'src/main.cpp','src/Config.cpp','src/Security.cpp','src/CoreService.cpp','src/LegacyCompat.cpp','src/RoomSocket.cpp','src/WorldSystems.cpp','src/RuleEngine.cpp','src/RuleCombatBridge.cpp','src/GearAffixSystem.cpp',
+        'include/trpg/Config.h','include/trpg/Security.h','include/trpg/CoreService.h','include/trpg/LegacyCompat.h','include/trpg/LegacyRouteManifest.h','include/trpg/RoomSocket.h','include/trpg/WorldSystems.h','include/trpg/RuleEngine.h','include/trpg/RuleCombatBridge.h','include/trpg/GearAffixSystem.h',
+        'public/index.html','public/native-socket.js','public/sw.js','public/manifest.webmanifest','public/icons/favicon-32.png','public/icons/apple-touch-icon.png','public/icons/icon-192.png','public/icons/icon-512.png',
+        'db/legacy_v39_migrations.sql','tests/security_test.cpp','tools/integration_smoke.py','docs/VERSION.txt','docs/api_parity.json','docs/FEATURE_MAP.md','docs/RULE_ENGINE_GUIDE.md'
+    ]
+    missing=[x for x in required if not (ROOT/x).is_file()]
+    expect(not missing,'必要檔案完整','缺少：'+', '.join(missing))
+    expect(ROOT.name=='rpg_web_global_mvp','專案根資料夾名稱正確','根資料夾不是 rpg_web_global_mvp')
+    root_files=[p.name for p in ROOT.iterdir() if p.is_file()]
+    expect(len(root_files)<=4,'GitHub 根目錄只保留少量部署檔','根目錄檔案仍過多：'+', '.join(root_files))
+    expect(not list(ROOT.glob('*.cpp')) and not list(ROOT.glob('*.h')),'C++ 原始碼已整理到 src/include','根目錄仍殘留 .cpp/.h')
+    expect(all((ROOT/d).is_dir() for d in ['src','include/trpg','public','db','tests','tools','docs']),'標準 C++ 目錄結構完整','標準目錄缺失')
+
+    version=read('docs/VERSION.txt').strip()
+    expect(version=='60-cpp.21.3' and 'kVersion = "60-cpp.21.3"' in read('include/trpg/CoreService.h') and 'C++ 相容版 60-cpp.21.3' in read('public/index.html') and '"version": "60-cpp.21.3"' in read('docs/api_parity.json'),
+           '60-cpp.21.3 版本資訊一致','版本資訊不同步')
+    expect('v60-cpp-21-3-room-start-hardening-1' in read('public/sw.js'),'Service Worker 快取版本已更新','Service Worker 仍使用舊快取')
+
+    cmake=read('CMakeLists.txt'); docker=read('Dockerfile'); render=read('render.yaml'); legacy=read('src/LegacyCompat.cpp')
+    expect('src/main.cpp' in cmake and 'flat_include' in cmake and 'tests/security_test.cpp' in cmake and 'GearAffixSystem.cpp' in cmake and 'GearAffixSystem.h' in cmake,'CMake 以標準目錄為主並保留詞條模組／平鋪 fallback','CMake 目錄或詞條模組支援不完整')
+    expect('COPY . .' in docker and 'if [ ! -f src/main.cpp ]' in docker,'Dockerfile 以標準目錄為主並保留平鋪 fallback','Dockerfile 目錄相容不完整')
+    expect('COPY --from=builder /src/public /app/public' in docker and 'COPY --from=builder /src/db /app/db' in docker,'Docker runtime 正確帶入 public/db','Docker runtime public/db 路徑錯誤')
+    expect('rootDir:' not in render and 'dockerfilePath: ./Dockerfile' in render and 'dockerContext: .' in render,'Render 使用 Repo 根目錄','Render root/context 設定錯誤')
+    expect('Root Directory: 留空' in read('README.md') and 'Render Root Directory 保持空白' in read('docs/GITHUB_RENDER_UPLOAD.txt'),
+           'Render Root Directory 文件已統一為 Repo 根目錄留空',
+           'README 與 GitHub/Render 上傳說明的 Root Directory 互相矛盾')
+    expect('std::filesystem::path{"db/legacy_v39_migrations.sql"}' in legacy,'C++ migration 使用 db/ 正式路徑','migration 找不到標準 db 路徑')
+
+    arity=helper_call_arity_errors(legacy)
+    expect(not arity,'SQL selectRows helper 參數數量一致','SQL helper 參數錯誤：'+'; '.join(arity))
+    backup_array=re.search(r'std::array<const char\*,(\d+)> names=\{([^;]+)\};',legacy)
+    if backup_array:
+        declared=int(backup_array.group(1)); actual=len(re.findall(r'"[^"]+"',backup_array.group(2)))
+        expect(declared==actual,'全站備份資料表陣列大小一致',f'備份資料表陣列宣告 {declared} 但實際 {actual}')
+    else:
+        bad('找不到全站備份資料表陣列')
+
+    # Bulk import regression checks.
+    expect('"recipes","shop"' in legacy and 'kind=="recipes"?"recipes"' in legacy and 'kind=="shop"?"shop_items"' in legacy,'C++ 批量匯入支援配方與商店','C++ 批量匯入缺 recipes/shop')
+    expect('syncShopItemCategory(service->database(),row)' in legacy,'商店批量匯入使用正式分類同步','商店批量匯入未同步分類')
+    expect('materials 必須是陣列' in legacy and 'output 必須是物件' in legacy and 'config 必須是物件' in legacy,'配方批量匯入有結構驗證','配方批量驗證不完整')
+    html=read('public/index.html')
+    expect('<option value="recipes">合成配方</option>' in html and '<option value="shop">商店商品</option>' in html and '<option value="magics">魔法學</option>' in html,'批量中心有配方／商店／魔法選項','批量中心選項缺失')
+    expect("if(kind==='recipes')" in html and "if(kind==='shop')" in html and 'parseRecipeMaterials' in html and 'parseRecipeOutput' in html,'前端有配方／商店批量範例與簡寫解析','前端批量配方/商店支援不完整')
+    expect('loadRecipes(),loadShop()' in html,'批量匯入後自動刷新配方與商店','匯入後未刷新配方/商店')
+    smoke=read('tools/integration_smoke.py')
+    expect('bulk import magic, recipes and shop items' in smoke and '("recipes"' in smoke and '("shop"' in smoke,'Render 整合測試涵蓋魔法／配方／商店批量匯入','整合測試未涵蓋批量匯入')
+
+    migrations=read('db/legacy_v39_migrations.sql')
+    expect('CREATE TABLE IF NOT EXISTS recipes' in migrations and 'CREATE TABLE IF NOT EXISTS shop_items' in migrations and 'CREATE TABLE IF NOT EXISTS magic_studies' in migrations,'配方／商店／魔法資料表存在','必要資料表缺失')
+
+    # Route parity.
+    routes=actual_routes(); counts=collections.Counter(routes)
+    expect(not [r for r,c in counts.items() if c>1],'HTTP handler 無重複','有重複 handler：'+', '.join(r for r,c in counts.items() if c>1))
+    parity=json.loads(read('docs/api_parity.json'))
+    expected_routes=set()
+    # Support either list of strings or objects from older parity formats.
+    for key in ['legacy_http_routes','ported_http_routes','routes']:
+        value=parity.get(key)
+        if isinstance(value,list):
+            for item in value:
+                if isinstance(item,str): expected_routes.add(norm(*item.split(' ',1))) if ' ' in item else None
+                elif isinstance(item,dict) and item.get('method') and item.get('path'): expected_routes.add(norm(item['method'],item['path']))
+    if not expected_routes:
+        # Core status still promises 244 legacy routes; actual list may live in a different field.
+        for item in parity.get('http_routes',[]):
+            if isinstance(item,dict): expected_routes.add(norm(item.get('method','GET'),item.get('path','/')))
+    if expected_routes:
+        missing_routes=sorted(expected_routes-set(routes))
+        expect(len(expected_routes)==244,'api_parity 記錄 244 條 v39 API',f'api_parity 路由數不是 244：{len(expected_routes)}')
+        expect(not missing_routes,'244 條 v39 API 均有 C++ handler','缺少路由：'+', '.join(missing_routes[:20]))
+    else:
+        expect('244' in read('include/trpg/CoreService.h') or '244' in read('src/CoreService.cpp'),'C++ 狀態仍宣告 244 條 v39 API','無法確認 244 API')
+
+    # Front-end syntax.
+    node=shutil.which('node')
+    if node:
+        r=run([node,'--check',str(ROOT/'public/native-socket.js')]); expect(r.returncode==0,'native-socket.js 語法通過',r.stdout.strip())
+        inline='\n'.join(m.group(1) for m in re.finditer(r'<script(?:\s[^>]*)?>(.*?)</script>',html,re.S))
+        with tempfile.NamedTemporaryFile('w',suffix='.js',encoding='utf-8',delete=False) as f:
+            f.write(inline); tmp=f.name
+        try:
+            r=run([node,'--check',tmp]); expect(r.returncode==0,'index.html 內嵌 JavaScript 語法通過',r.stdout.strip())
+        finally:
+            Path(tmp).unlink(missing_ok=True)
+    else: WARN.append('找不到 Node，未執行前端 JavaScript 語法檢查')
+
+    # Compile security test independent of Drogon.
+    gpp=shutil.which('g++')
+    if gpp:
+        with tempfile.TemporaryDirectory() as td:
+            binary=Path(td)/'security_test'
+            r=run([gpp,'-std=c++20','-Wall','-Wextra','-Wpedantic','-I'+str(ROOT/'include'),str(ROOT/'src/Security.cpp'),str(ROOT/'tests/security_test.cpp'),'-lcrypto','-lcrypt','-o',str(binary)])
+            expect(r.returncode==0,'Security C++ 真編譯通過',r.stdout.strip())
+            if r.returncode==0:
+                t=run([str(binary)]); expect(t.returncode==0,'JWT/bcrypt 單元測試通過',t.stdout.strip())
+    else: WARN.append('找不到 g++，未執行 Security C++ 編譯')
+
+    # CMake parse/configure using a fake imported Drogon target.
+    cmake_bin=shutil.which('cmake')
+    if cmake_bin:
+        with tempfile.TemporaryDirectory() as td:
+            td=Path(td); pkg=td/'fake'; pkg.mkdir(); (pkg/'DrogonConfig.cmake').write_text('add_library(Drogon::Drogon INTERFACE IMPORTED)\n',encoding='utf-8')
+            r=run([cmake_bin,'-S',str(ROOT),'-B',str(td/'build'),'-DDrogon_DIR='+str(pkg),'-DBUILD_TESTING=OFF'])
+            expect(r.returncode==0,'CMake 標準目錄 configure 通過',r.stdout.strip())
+    else: WARN.append('找不到 cmake')
+
+    # PWA and repository cleanliness.
+    for icon in ['favicon-32.png','apple-touch-icon.png','icon-192.png','icon-512.png']:
+        data=(ROOT/'public/icons'/icon).read_bytes(); expect(data.startswith(b'\x89PNG\r\n\x1a\n'),f'{icon} PNG 簽名正確',f'{icon} 不是有效 PNG')
+    expect('/manifest.webmanifest' in html and 'manifest.webmanifest' in read('public/sw.js'),'PWA manifest 已接入','PWA manifest 連結缺失')
+    junk=[p for p in ROOT.rglob('*') if p.is_dir() and p.name in {'build','__pycache__'}]
+    junk += [p for p in ROOT.rglob('*.pyc')]
+    expect(not junk,'專案無 build/__pycache__/pyc 垃圾','發現測試產物：'+', '.join(str(p.relative_to(ROOT)) for p in junk[:20]))
+    expect('60-cpp.21 怪物完整戰鬥實體' in read('docs/FEATURE_MAP.md'),'FEATURE_MAP 已更新本版功能','FEATURE_MAP 未更新')
+
+    gear_cpp=read('src/GearAffixSystem.cpp')
+    expect(all(x in migrations for x in ['CREATE TABLE IF NOT EXISTS special_currency_types','CREATE TABLE IF NOT EXISTS equipment_slot_types','CREATE TABLE IF NOT EXISTS affix_definitions','CREATE TABLE IF NOT EXISTS affix_pools','CREATE TABLE IF NOT EXISTS reforge_profiles','CREATE TABLE IF NOT EXISTS affix_targets']), '通用詞條／洗煉 migration 完整', '通用詞條／洗煉 migration 缺失')
+    expect("'trait_core','詞條核心'" in migrations and "VALUES('puppet','G',1,2,'trait_core',1,'trait_core',5,FALSE,TRUE)" in migrations, '詞條核心與 G 級預設洗煉規則存在', '詞條核心或 G 級預設洗煉規則缺失')
+    expect('/api/admin/affix-pools/{1}/entries/{2}' in gear_cpp and 'probability' in gear_cpp and 'weight' in gear_cpp, 'DM 詞條權重／機率管理由 C++ 提供', '詞條權重／機率 C++ 接線缺失')
+    expect('/api/character/loadout' in gear_cpp and 'weapon_slots' in gear_cpp and 'equipment_slot_types' in gear_cpp and '雙手' in gear_cpp, '主副欄位與 DM 自訂裝備槽由 C++ 驗證', '裝備配置 C++ 驗證缺失')
+    expect('/api/affix-targets/{1}/reroll' in gear_cpp and '/api/affix-targets/{1}/targeted' in gear_cpp and 'target_type' in gear_cpp, '通用洗煉支援隨機／指定且不綁單一目標類型', '通用洗煉 API 缺失')
+    expect('special_currency' in legacy and 'character_special_currencies' in legacy, '合成配方可產出特殊貨幣', '配方尚未接特殊貨幣')
+    expect('playerGearSlotsHTML' in html and 'playerAffixTargetsHTML' in html and 'adminAffixSystemHTML' in html, '玩家裝備／詞條與 DM 洗煉介面存在', '裝備或詞條前端介面缺失')
+    expect(all(x in html for x in ['mobile-character-nav','gear-slot-grid','mobile-admin-stack','mobile-collapsible']), '手機角色／裝備／DM 面板優化存在', '手機面板優化缺失')
+    expect('GearAffixSystem.cpp' in docker and 'GearAffixSystem.h' in docker, 'Docker 平鋪 fallback 包含詞條模組', 'Docker fallback 遺漏詞條模組')
+    expect('defaultSlotSeedSql' in gear_cpp and 'VALUES($1,$2,$3,TRUE) ON CONFLICT(code) DO NOTHING' not in gear_cpp,
+           '啟動預設裝備槽 seed 不再使用 PostgreSQL $3 binary bind',
+           '啟動預設裝備槽仍使用 $3 參數，可能觸發 insufficient data left in message')
+
+    # 59-cpp.20 mixed-rank + separate special-affix regression checks.
+    expect(all(x in migrations for x in [
+        "ALTER TABLE affix_definitions ADD COLUMN IF NOT EXISTS affix_kind",
+        "ALTER TABLE affix_pools ADD COLUMN IF NOT EXISTS pool_kind",
+        "ALTER TABLE affix_pools ADD COLUMN IF NOT EXISTS mixed_ranks",
+        "ALTER TABLE affix_pools ADD COLUMN IF NOT EXISTS rank_weights",
+        "ALTER TABLE affix_targets ADD COLUMN IF NOT EXISTS special_affixes",
+        "ALTER TABLE affix_targets ADD COLUMN IF NOT EXISTS intrinsic_effects",
+        "CREATE TABLE IF NOT EXISTS special_affix_rules",
+        "CREATE TABLE IF NOT EXISTS special_affix_roll_history",
+    ]), '59-cpp.20 詞條分層／特殊詞條 migration 完整', '59-cpp.20 詞條分層 migration 缺失')
+    expect('pickAffixFromPool' in gear_cpp and 'mixed_ranks' in gear_cpp and 'rank_weights' in gear_cpp and 'weightedRankPick' in gear_cpp,
+           '混合品階池採先品階後詞條兩層抽取', '混合品階兩層抽取 C++ 接線缺失')
+    expect('special_affix_details' in gear_cpp and 'intrinsic_effects' in gear_cpp and 'current_affixes 完全不修改' in gear_cpp,
+           '一般／特殊詞條／固有效果三層資料完全分離', '詞條三層資料分離不完整')
+    expect('/api/admin/special-affix-rules' in gear_cpp and '/api/affix-targets/{1}/special-roll/{2}' in gear_cpp and 'once_per_pair' in gear_cpp,
+           '裝備→人偶特殊詞條機率規則與一次判定 API 存在', '特殊詞條機率規則 API 缺失')
+    expect('/api/admin/affix-pools/{1}' in gear_cpp and 'drogon::Delete' in gear_cpp,
+           '詞條池可刪除並供整合測試清理', '詞條池刪除 API 缺失')
+    expect('mixed-rank pool and separate equipment-to-puppet special affix roll' in smoke and 'chance_percent": 100' in smoke,
+           'Render integration_smoke 實際驗證混池與特殊詞條不佔一般槽', '59-cpp.20 尚未納入 Render 整合測試')
+    expect('affixPoolMixed' in html and 'pool-rank-weights' in html and 'specialAffixRuleForm' in html and 'roll-special-affix' in html,
+           'DM 混合品階／特殊詞條規則與玩家判定 UI 完整', '59-cpp.20 詞條前端介面不完整')
+    expect('[功能備註｜59-cpp.20 混合品階詞條池]' in gear_cpp and '[前端功能備註｜59-cpp.20 詞條／洗煉]' in html,
+           '59-cpp.20 C++／前端功能備註存在', '59-cpp.20 功能備註缺失')
+
+    # 60-cpp.21 monster combat entity regression checks.
+    core=read('src/CoreService.cpp')
+    expect(all(x in migrations for x in [
+        "ALTER TABLE monster_templates ADD COLUMN IF NOT EXISTS passive_skills",
+        "ALTER TABLE monster_templates ADD COLUMN IF NOT EXISTS great_way",
+        "ALTER TABLE monster_templates ADD COLUMN IF NOT EXISTS boss_phases",
+    ]), '60-cpp.21 怪物技能／大道／Boss migration 完整', '60-cpp.21 怪物 migration 缺失')
+    expect('[功能備註｜60-cpp.21 怪物五維]' in core and '{"strength","agility","constitution","spirit","luck"}' in core and 'monsterSkillConditionMatches' in core and 'chooseMonsterCombatSkill' in core,
+           'C++ 怪物五維與 AI 技能判定完整', '怪物五維或 AI 技能判定 C++ 接線缺失')
+    expect('passive_skills' in core and 'great_way' in core and 'boss_phases' in core and 'COMBAT_SKILL_USED' in core and 'resource_cost' in core,
+           'C++ 怪物主動／被動／大道技／Boss／規則事件已接戰鬥', '怪物完整戰鬥資料未接入 C++')
+    expect('[功能備註｜60-cpp.21 怪物完整戰鬥實體]' in legacy and 'combat_accuracy_bonus' in legacy and 'great_way' in legacy and 'boss_phases' in legacy,
+           '怪物修改 API 可保存完整戰鬥資料與頂層相容欄位', '怪物 PATCH 完整資料保存不完整')
+    expect(all(x in html for x in ['monsterPassiveSkills','monsterGreatWayEnabled','monsterGreatWaySkills','parseMonsterCombatSkillsUI','formatMonsterCombatSkillsUI','luck']),
+           'DM 怪物五維／技能／大道前端完整', '怪物完整戰鬥前端不完整')
+    expect("if(!line.includes('|'))return line" in html and 'if (!raw.isObject()) continue' in core,
+           '舊字串怪物技能維持顯示相容且不會被 AI 誤施放', '舊字串怪物技能相容保護缺失')
+    expect('attributes_text' in legacy and 'PATCH 可只改一維，不會把其他四維清成 0' in legacy and '"attributes": {"luck": 18}' in smoke,
+           '怪物五維 PATCH 支援局部修改且有整合回歸', '怪物五維局部 PATCH 可能覆寫其他屬性')
+    expect('monster five attributes + structured skills + optional Great Way' in smoke and '測試大道技' in smoke and 'current_fifth' in smoke and 'boss_phases' in smoke,
+           'Render integration_smoke 實際驗證怪物五維／技能／大道／Boss', '60-cpp.21 尚未納入 Render 整合測試')
+    expect(smoke.find('def passed(name: str)') < smoke.find('passed("PWA version endpoint")') and 'status.get("version") == "60-cpp.21.3"' in smoke,
+           'Render integration_smoke 初始化與版本檢查順序正確', 'integration_smoke 可能在 helper 定義前呼叫或仍檢查舊版本')
+    expect('[前端功能備註｜60-cpp.21 怪物技能]' in html and '[前端功能備註｜60-cpp.21 怪物完整戰鬥實體]' in html,
+           '60-cpp.21 C++／前端功能備註存在', '60-cpp.21 功能備註缺失')
+    expect('[功能備註｜60-cpp.21.1 Render 編譯修正]' in legacy and
+           'std::string clipped(std::string value, std::size_t bytes)' in legacy and
+           'style["branch"] = clipped(branch, 80);' in legacy,
+           '60-cpp.21.1 LegacyCompat UTF-8 clipped helper 已就地定義',
+           '60-cpp.21.1 clipped helper 缺失，Render 會在 LegacyCompat.cpp 編譯失敗')
+    expect('if(!x.isMember("price"))x["price"]' not in legacy and
+           'if(!x.isMember("stock"))x["stock"]=-1;if' not in legacy,
+           '60-cpp.21.1 knowledge_shop misleading-indentation warning 已整理',
+           '60-cpp.21.1 knowledge_shop 仍有一行多條 if 的 misleading indentation')
+
+    socket_cpp=read('src/RoomSocket.cpp'); native=read('public/native-socket.js')
+    expect('CREATE TABLE IF NOT EXISTS realtime_tickets' in core and '/api/realtime-ticket' in core and '/api/version' in core,
+           'PWA 版本 API 與 WebSocket 一次性票證 API 已建立','缺少版本或即時連線票證 API')
+    expect('realtime_tickets' in socket_cpp and 'ticket' in native and 'createTicket' in native,
+           'WebSocket 握手改用短效 ticket 並保留相容模式','WebSocket ticket 接線不完整')
+    expect('/api/realtime-ticket' in smoke and 'WebSocketClient(args.base_url, ticket, "ticket")' in smoke,
+           'Render integration_smoke 會實際驗證 WebSocket ticket 握手','WebSocket ticket 尚未納入整合測試')
+    expect('id="installAppButton"' in html and 'beforeinstallprompt' in html and 'checkAppVersion' in html and 'SKIP_WAITING' in read('public/sw.js'),
+           '登入頁下載 App 與 PWA 自動更新流程完整','PWA 下載／更新流程缺失')
+    expect('data-view="library"' not in html and 'game-room-section' in html and '書庫位於遊戲間內' in html,
+           '書庫已移入遊戲間且不再獨立顯示','書庫仍是獨立入口或未嵌入遊戲間')
+    expect('MAGIC_NODE_ICONS' in html and 'MAGIC_NODE_TYPES' in html and 'magicTreeProgressHTML' in html and 'magicTreeToolbarHTML' in html,
+           '魔法技能樹含圖示庫、節點類型、搜尋與進度條','魔法技能樹 UI 強化不完整')
+    expect('body.element=' in html and 'body.node_style=' in html and 'normalizeMagicNodeStyle' in legacy,
+           'DM 魔法節點的元素／位置／圖示／類型會真正寫入 C++','魔法節點表單仍未完整送到後端')
+    expect('0,40' in legacy and '0,60' in legacy,
+           '魔法技能樹可用座標範圍已擴充','魔法樹座標仍使用舊上限')
+
+    # 58-cpp.19 derived-stat regression checks.
+    expect('const auto derivedMaxHp = derivedConstitution * 2' in core and 'const auto derivedEndurance = (derivedConstitution + derivedSpirit) / 2' in core and 'const auto derivedWill = derivedSpirit * 8 / 10' in core and 'const auto derivedSanity = derivedSpirit * 12 / 10' in core,
+           'C++ 角色衍生值公式完整','C++ 衍生值公式缺失或退回舊欄位')
+    expect('WHERE cc.user_id=rm.user_id AND (rm.max_hp<=1 OR rm.max_spirit<=0 OR rm.max_sanity<=1)' in core,
+           '舊房間衍生值修復 migration 存在','舊房間衍生值修復 migration 缺失')
+    expect('derivedConstitution' in html and 'derivedEndurance' in html and 'derivedSanity' in html and 'derivedWill' in html,
+           '角色卡前端衍生值 fallback 存在','角色卡仍完全依賴舊衍生欄位')
+    expect("'max_sanity',CASE WHEN COALESCE(rm.max_sanity,0)<=1" in core,
+           '房間快照對舊理智上限有 fallback','房間快照仍可能顯示 0/1 理智')
+
+    if not shutil.which('docker') and not shutil.which('podman'):
+        WARN.append('目前環境沒有 Docker/Podman；完整 Render Docker build 需部署後驗證')
+    if not os.environ.get('DATABASE_URL'):
+        WARN.append('目前環境沒有 DATABASE_URL；批量匯入真實 PostgreSQL 整合由 Render integration_smoke 驗證')
+
+
+    expect(all(x in read('db/legacy_v39_migrations.sql') for x in ['ALTER TABLE skill_templates ADD COLUMN IF NOT EXISTS rank','ALTER TABLE item_templates ADD COLUMN IF NOT EXISTS rank','ALTER TABLE recipes ADD COLUMN IF NOT EXISTS rank','CREATE TABLE IF NOT EXISTS knowledge_shop_items','CREATE TABLE IF NOT EXISTS knowledge_shop_purchases']), '共用品階／遊戲間／書庫 migration 完整', '缺少品階或知識商店 migration')
+    expect('normalizeContentRank' in read('src/LegacyCompat.cpp') and '/api/knowledge-shop/{1}' in read('src/LegacyCompat.cpp') and 'knowledge_shop' in read('src/LegacyCompat.cpp'), 'C++ 品階驗證／知識商店／批量匯入已接線', 'C++ 品階或知識商店接線不完整')
+    expect('function libraryHTML()' in read('public/index.html') and 'adminKnowledgeShopHTML' in read('public/index.html') and 'CONTENT_RANKS' in read('public/index.html'), '前端書庫／遊戲間／品階介面存在', '前端書庫或品階介面缺失')
+
+    expect(all(x in read('db/legacy_v39_migrations.sql') for x in ['ALTER TABLE magic_studies ADD COLUMN IF NOT EXISTS element','CREATE TABLE IF NOT EXISTS npc_task_offers','CREATE TABLE IF NOT EXISTS npc_avatar_images','ALTER TABLE dungeon_templates ADD COLUMN IF NOT EXISTS dungeon_level']), '55-cpp.16 migration：魔法樹／NPC 任務頭像／副本等級完整', '55-cpp.16 migration 缺失')
+    expect('房間清單只查核心穩定欄位' in read('src/CoreService.cpp') and "to_jsonb(rm)->'current_map_node_id'" in read('src/CoreService.cpp'), '房間列表／快照採向後相容查詢', '房間 500 相容修復不完整')
+    expect('normalizeMagicElement' in read('src/LegacyCompat.cpp') and 'magicTreeBoardHTML' in read('public/index.html') and 'TreeX' in read('public/index.html') and '${prefix}Element' in read('public/index.html'), '七元素魔法技能樹 C++／前端完整', '魔法技能樹接線不完整')
+    expect('validateMagicTreePrerequisites' in read('src/LegacyCompat.cpp') and '前置魔法必須位於同一元素技能樹' in read('src/LegacyCompat.cpp'), '魔法技能樹前置由 C++ 驗證同元素', '魔法技能樹前置驗證缺失')
+    expect('room snapshot monsters degraded' in read('src/CoreService.cpp') and 'ALTER TABLE rooms ADD COLUMN IF NOT EXISTS closed_at' in read('src/CoreService.cpp'), '房間快照擴充區塊可降級且核心欄位自我修復', '房間快照降級／核心 migration 不完整')
+    expect('/api/admin/npc-templates/{1}/avatar/upload' in read('src/WorldSystems.cpp') and '/tasks/{3}/accept' in read('src/LegacyCompat.cpp'), 'NPC 頭像上傳／任務發布已接線', 'NPC 頭像或任務接線不完整')
+    expect('avatarFilePayload(file)' in read('public/index.html') and 'npc-task-accept' in read('public/index.html') and 'taskOffers=data.task_offers' in read('public/index.html'), 'NPC 頭像直接上傳與玩家接受 NPC 任務前端已接線', 'NPC 頭像 helper 或 NPC 任務玩家介面不完整')
+    expect('dungeon_level' in read('src/LegacyCompat.cpp') and 'dungeonLevel' in read('public/index.html'), '副本 1~10／神 等級已接線', '副本等級接線不完整')
+    expect('SELECT id,rank FROM \\\""+table+"\\\" WHERE name=$1' in read('src/LegacyCompat.cpp'), '知識商店批量 content_name 動態 SQL 已修正', '知識商店動態 SQL 仍可能錯誤')
+    # 60-cpp.21.3 room creation/start hardening + retained wheel regression checks.
+    expect('[功能備註｜60-cpp.21.3 開團安全快照]' in core and
+           '[功能備註｜60-cpp.21.3 建立房間核心優先]' in core and
+           '[功能備註｜60-cpp.21.3 開團核心優先]' in core and
+           'resilientRoomSnapshot(self, roomId)' in core and
+           'userCanManageRoom(self, user, roomId)' in core,
+           '60-cpp.21.3 建房／開團後端核心優先與安全快照存在', '60-cpp.21.3 建房／開團後端保護缺失')
+    expect('room character binding degraded for room' in core and
+           'room create event degraded for room' in core and
+           'reply(callback, resilientRoomSnapshot(self, roomId));' in core,
+           '60-cpp.21.3 建房附加功能失敗不再拖垮房間建立', '60-cpp.21.3 建房仍可能被角色綁定／事件拖垮')
+    expect('[功能備註｜60-cpp.21.3 加入房間核心優先]' in core and
+           'SELECT id,name FROM character_cards WHERE user_id=$1 LIMIT 1' in core and
+           'room join character binding degraded for room' in core and
+           'room join event degraded for room' in core,
+           '60-cpp.21.3 加入房間不再依賴完整 characterByUser', '60-cpp.21.3 加入房間仍可能被後期角色系統拖垮')
+    expect('const auto user = requireCurrentUser(self, request);' in core[core.find('/api/rooms/{1}/start'):core.find('/api/rooms/{1}/battle/start')] and
+           '只有房主／房間 GM／全站 DM 可以開團' in core,
+           '60-cpp.21.3 開團權限支援房主／房間 GM／全站 DM', '60-cpp.21.3 開團仍被全站 DM 權限綁死')
+    expect('[功能備註｜60-cpp.21.2 轉盤核心 migration]' in core and
+           'CREATE TABLE IF NOT EXISTS custom_wheels' in core and
+           'CREATE TABLE IF NOT EXISTS wheel_spins' in core,
+           '60-cpp.21.2 轉盤核心 migration 完整', '60-cpp.21.2 轉盤核心 migration 缺失')
+    expect('[前端功能備註｜60-cpp.21.3 建房／開團核心事件]' in html and
+           'bindCriticalRoomWheelEvents();' in html and
+           'if(create)create.onclick=createRoomCritical;' in html and
+           'if(join)join.onclick=joinRoomCritical;' in html and
+           "if(start)start.onclick=()=>startCampaignCritical(start);" in html and
+           html.find('bindCriticalRoomWheelEvents();') < html.find('try{bindGearAffixEvents();}'),
+           '60-cpp.21.3 建房／加入／開團／轉盤優先事件綁定存在', '60-cpp.21.3 核心房間事件仍可能被其他 bind 阻斷')
+    expect('await activateRoom(data);' in html[html.find('async function createRoomCritical'):html.find('async function spinWheelCritical')] and
+           "data?.degraded_snapshot?'房間已建立" in html and
+           "data?.degraded_snapshot?'跑團已開始" in html,
+           '60-cpp.21.3 前端可接受安全降級快照並重新載入房間資料', '60-cpp.21.3 前端未處理降級快照')
+    expect('passed("wheel create, list and spin")' in smoke and
+           '/api/admin/wheels' in smoke and '/spin' in smoke,
+           'Render integration_smoke 實際驗證輪盤建立／讀取／轉動', '輪盤尚未納入 Render integration smoke')
+
+    print(f'PASS={len(PASS)} FAIL={len(FAIL)} WARN={len(WARN)}')
+    for x in PASS: print('PASS',x)
+    for x in FAIL: print('FAIL',x)
+    for x in WARN: print('WARN',x)
+    return 1 if FAIL else 0
+
+if __name__=='__main__':
+    raise SystemExit(main())
