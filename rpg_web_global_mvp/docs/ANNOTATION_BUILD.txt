@@ -1,0 +1,59 @@
+TRPG Online C++ 功能備註索引
+版本：64-cpp.25
+
+本版維持「任何核心修改都以 C++ 為主」：
+- CoreService.cpp：核心認證、角色、房間、戰鬥、回合、狀態自動化與通知。
+- RuleCombatBridge.cpp：規則怪談與戰鬥雙向橋接、Boss 階段、特殊勝利條件。
+- LegacyCompat.cpp：v39 相容 API、搜尋/標籤、收藏、百科、商店進階、技能樹、批量匯入。
+- index.html：只負責介面與操作綁定；重要具名 function 均有 [前端功能備註｜...]。
+- legacy_v39_migrations.sql：PostgreSQL schema 與新增效率系統資料表。
+- FEATURE_MAP.md：HTTP API → 功能 → 程式位置，以及各版本新增功能索引。
+- GearAffixSystem.cpp：搜尋 [功能備註｜59-cpp.20；混合品階池、一般/特殊詞條分層、裝備→人偶特殊詞條規則。
+- CoreService.cpp / LegacyCompat.cpp / RuleCombatBridge.cpp：搜尋 [功能備註｜60-cpp.21；怪物五維、主動/被動技能、可選大道、Boss 階段與怪物戰鬥 AI。
+- index.html：搜尋 [前端功能備註｜60-cpp.21；DM 怪物完整戰鬥實體與玩家怪物卡顯示。
+
+修改方式：
+1. 先在 FEATURE_MAP.md 搜尋功能名稱。
+2. 核心規則優先改 C++，不要把規則塞回前端 JavaScript。
+3. 若 API/schema 有變動，同步更新 migration、FEATURE_MAP、api_parity.json。
+4. 修改完成執行 python3 release_check.py。
+
+- LegacyCompat.cpp：搜尋 [功能備註｜60-cpp.21.1 Render 編譯修正]；修正 normalizeMagicNodeStyle 的 clipped helper 可見性與 knowledge_shop misleading indentation。
+
+- 60-cpp.21.2：搜尋 [功能備註｜60-cpp.21.2 / [前端功能備註｜60-cpp.21.2；開團優先綁定、轉盤核心 migration、Service Worker 換版。
+- 60-cpp.21.3：搜尋 [功能備註｜60-cpp.21.3 / [前端功能備註｜60-cpp.21.3；建房／加入／開團核心事件、resilientRoomSnapshot、安全降級快照、房間 GM 開團權限。
+
+- 60-cpp.21.4：搜尋 [功能備註｜60-cpp.21.4 / [前端功能備註｜60-cpp.21.4；提交行動核心優先、submitActionCritical、規則引擎／快照降級。
+
+- 61-cpp.22：搜尋 [功能備註｜61-cpp.22 / [前端功能備註｜61-cpp.22；平面地圖、節點座標、SVG 連線、拖曳與節點移動。
+
+- 61-cpp.22.1：搜尋 [功能備註｜61-cpp.22.1 / [前端功能備註｜61-cpp.22.1；安全刪除地圖節點與引用清理。
+- 62-cpp.23：搜尋 [功能備註｜62-cpp.23 / [前端功能備註｜62-cpp.23；事件型技能、多段 Hit、Proc Mode、畫兵成真／速寫標記。
+- 62-cpp.23.1：搜尋 [功能備註｜62-cpp.23.1 / 場地技能、AUTO_COMBAT_START、FieldEffect、場地覆蓋規則、場地快照／備份。
+
+63-cpp.24 搜尋標記：
+[功能備註｜63-cpp.24 儀式學雙面板]
+[功能備註｜63-cpp.24 儀式場]
+[功能備註｜63-cpp.24 儀式佈置驗證]
+[功能備註｜63-cpp.24 儀式效果共用技能核心]
+[前端功能備註｜63-cpp.24 儀式場]
+
+
+63-cpp.24.1 搜尋標記：
+[功能備註｜63-cpp.24.1 儀式學點數／研究系統]
+[功能備註｜63-cpp.24.1 儀式學經驗／等級／點數]
+[功能備註｜63-cpp.24.1 未解析儀式]
+[功能備註｜63-cpp.24.1 學習前解析驗證]
+[功能備註｜63-cpp.24.1 儀式點數帳本]
+[功能備註｜63-cpp.24.1 DM 儀式研究調整]
+[前端功能備註｜63-cpp.24.1 未解析儀式]
+
+
+64-cpp.25 搜尋標記：
+[功能備註｜64-cpp.25 角色正式等階]
+[功能備註｜64-cpp.25 五項基礎屬性]
+[功能備註｜64-cpp.25 角色等階快照]
+[功能備註｜64-cpp.25 角色小級／0→1 晉升]
+[功能備註｜64-cpp.25 登階／登神儀式]
+[功能備註｜64-cpp.25 登階儀式前置驗證]
+[功能備註｜64-cpp.25 固定等階屬性額度]
