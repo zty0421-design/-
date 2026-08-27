@@ -1,5 +1,0 @@
-Render compile hotfix
-- characterByUser moved to CoreService public API for combat helper access.
-- profession role is std::string, avoiding pointer comparison.
-- GCC 12 -Wrestrict warnings in Security/Config rewritten.
-- release_check.py now guards these regressions.
