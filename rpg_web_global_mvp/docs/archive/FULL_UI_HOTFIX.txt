@@ -1,0 +1,10 @@
+TRPG Online C++ full UI hotfix
+
+修正：
+1. 關閉 CPP_CORE_PREVIEW，恢復 v39 完整導覽與管理介面。
+2. 取消 cpp-unported 的強制隱藏。
+3. Drogon 靜態檔白名單加入 webmanifest，並設定 application/manifest+json。
+4. Service Worker cache key 更新，避免舊預覽頁持續被快取。
+
+GitHub 上傳方式：把本資料夾內所有檔案直接覆蓋 Repo 根目錄。
+Render：Root Directory 留空；Dockerfile ./Dockerfile；Context .
