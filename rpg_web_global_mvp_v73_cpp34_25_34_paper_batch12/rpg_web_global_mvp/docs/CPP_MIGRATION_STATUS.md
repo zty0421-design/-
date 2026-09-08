@@ -1,0 +1,229 @@
+# C++ 遷移狀態：65-cpp.26.10
+
+## 結論
+
+- v39 HTTP 路由：**244**
+- C++ 已註冊 v39 HTTP 路由：**244 / 244**
+- 額外 C++ 效率／管理 API：**128**
+- 原生 WebSocket 核心事件：3
+- v39 PostgreSQL schema/migration：已整合進 C++ 啟動流程
+- `code_complete`：`true`
+- `production_ready`：`false`（本版新增功能仍需 Render/PostgreSQL/瀏覽器完整回歸）
+
+## 已整合系統
+
+認證、角色、職業、技能、裝備、召喚、配方、商店、房間、戰鬥、怪物、NPC、副本、任務、恐怖、線索、狀態、道具、地圖、暗骰、隊伍、幻象、世界事件、追逐、Boss、容器、存檔點、備份、稽核、探索推理、大道、信仰、輪盤、勢力聲望與 NPC 社交／交易。
+
+46-cpp.7 另外整合：全站搜尋/標籤、收藏、通知、百科、自訂資源、跑團時間線、進階商店、技能樹、狀態每回合自動化、DM 模板中心、任務追蹤、裝備比較、手機戰鬥模式，以及技能/道具/材料批量匯入。
+
+## 已知外部驗證狀態
+
+先前版本已在 Render 實際完成 Docker + Drogon 編譯、啟動 PostgreSQL 並成功登入。55-cpp.16 因新增條件式規則引擎、事件自動接線與規則狀態 migration，仍需重新部署以確認完整編譯及真實資料庫回歸；多人 WebSocket、高併發與桌面/手機全流程 E2E 仍屬正式上線前驗證項目。
+
+
+55-cpp.16 新增：獨立魔法學／儀式學點數與學習資料庫、七元素儲存/容量、技能/道具/學習內容容量加成、永久單元素擴容道具、DM 元素調整、魔法/儀式批量匯入。
+
+
+## 55-cpp.16 世界／通訊／離線 AI
+
+- 規則書、NPC/玩家頭像、商人標記。
+- C++ 程序場景地圖生成，可由 DM 再編輯節點。
+- 非同場景預設不能聊天；雙方持有通訊道具時可跨場景，禁訊區會封鎖遠端通訊。
+- 技能／道具可設定每分鐘自動生成指定元素，且不超過角色元素儲存上限。
+- 玩家離線時 C++ AI 接管：有隊伍跟隨隊伍／隊長位置；無隊伍依既有地圖、探查與線索規則探索；離線玩家收到隊伍邀請自動接受；重新連線後交回控制。
+
+
+## 55-cpp.16 條件式規則引擎
+
+- 規則書文字可綁定結構化 C++ 規則。
+- 支援 AND / OR / NOT 與比較、包含、正則等條件。
+- 支援旗標、計數器、倒數、DM 通知、違規紀錄、阻止操作、狀態與同房傳送等效果。
+- 已自動接入玩家行動、移動、隊伍、離線 AI、場景輪詢、商店、道具、NPC 對話、聊天、進房與倒數事件。
+- 房間存檔／還原會保留規則、玩家規則狀態與觸發紀錄。
+- 詳細格式：`RULE_ENGINE_GUIDE.md`。
+
+
+## 55-cpp.16 規則怪談 × 戰鬥橋接
+
+新增 RuleCombatBridge C++ 模組。世界規則可生成/遭遇怪物、開始/結束戰鬥、修改怪物與 Boss 階段、加戰鬥狀態、設定特殊勝利條件、開關其他規則；戰鬥開始/回合/攻擊/擊敗/技能/結束會反向送入 RuleEngine。
+
+## 55-cpp.16 DM 玩家頭像管理
+
+新增 `PATCH /api/admin/players/:id/avatar`。只有全站 DM 可修改其他玩家頭像，玩家自己的 `/api/me/avatar` 權限維持不變。角色卡列表與完整角色編輯器均可操作。
+
+
+## 55-cpp.16 直接上傳頭像
+- C++ base64 解碼 + JPG/PNG/WebP magic-byte 驗證。
+- PostgreSQL `avatar_images` 持久化。
+- 玩家與 DM 都可上傳；DM 權限在後端驗證。
+- 外部 URL 模式仍保留。
+
+## 55-cpp.16 目錄整理與批量匯入
+
+- Repo 根目錄不再平鋪所有來源檔；改用標準 `src/include/public/db/tests/tools/docs` 結構。
+- 批量匯入新增合成配方與商店商品；魔法批量匯入維持支援。
+- 商店批量匯入由 C++ 驗證價格／庫存／限購／折扣／回收比例與分類，分類不存在時自動建立。
+- 配方批量匯入由 C++ 驗證 `materials` 陣列、`output` 物件與 `config` 物件。
+
+## 56-cpp.17 通用詞條／洗煉／裝備槽
+
+- 新增 `GearAffixSystem.cpp` C++ 模組：特殊貨幣、可自訂裝備槽、詞條庫、詞條池權重、洗煉設定與通用詞條目標。
+- `trait_core`（詞條核心）為特殊貨幣，可由合成配方輸出。
+- 角色配置改為固定主／副欄位與 DM 自訂裝備槽；C++ 驗證持有權、重複配置與雙手類型衝突。
+- 詞條池權重在遊戲內修改，API 回傳自動換算百分比。
+- 行動版角色／裝備／戰鬥／DM 管理介面重新排版。
+
+## 59-cpp.20 混合品階／特殊詞條分層
+
+- `GearAffixSystem.cpp` 新增一般／特殊詞條類型與一般／特殊詞條池類型。
+- 混合品階詞條池改為兩層抽取：先依 `rank_weights` 決定品階，再用該品階詞條權重抽實際詞條。
+- `affix_targets` 將一般詞條、額外特殊詞條、固有效果拆成 `current_affixes`、`special_affixes`、`intrinsic_effects`。
+- 新增 `special_affix_rules` 與 `special_affix_roll_history`；來源裝備可依名稱／品階／類型設定成功率，對指定人偶等目標額外授予特殊詞條。
+- 特殊詞條判定不修改 `current_affixes`，因此不占一般詞條上限；可限制特殊詞條獨立上限。
+- C++、前端、migration、FEATURE_MAP、release check 均加入 `59-cpp.20` 功能備註與回歸檢查。
+
+
+## 60-cpp.21 怪物完整戰鬥實體
+
+- 怪物五維統一為力量、敏捷、體質、精神、幸運；五維保留在模板 `attributes` JSONB。
+- 新增 `passive_skills`、`great_way`、`boss_phases` JSONB 欄位；`skills` 升級為可執行的結構化主動技能。
+- 怪物大道是選填；啟用後房間怪物的大道資源以 `resource_max` 初始化，技能可實際消耗。
+- 怪物 AI 可依 HP、目標 HP、回合、Boss 階段、機率及資源條件挑選技能，否則回退基本攻擊。
+- AI 怪物技能會送入規則引擎 `COMBAT_SKILL_USED`。
+- 怪物建立與修改均把相容的頂層戰鬥欄位合併進正式 `config`，修正舊版部分欄位修改後未真正持久化。
+- C++、SQL、前端、FEATURE_MAP、release check 與 Render integration smoke 均加入 `60-cpp.21` 備註與回歸。
+
+
+## 60-cpp.21.2 開團／轉盤穩定性
+- 開團與轉盤前端事件改成關鍵優先綁定。
+- 轉盤資料表納入 C++ 核心 migration。
+- 開團戰鬥欄位重置加入舊 schema 降級保護。
+- Render integration smoke 新增輪盤建立／讀取／轉動驗證。
+
+## 60-cpp.21.3 建房／開團穩定性
+
+- `POST /api/rooms` 的角色綁定與事件寫入改為非核心 best-effort。
+- `POST /api/rooms/:id/start` 支援房主／房間 GM／全站 DM。
+- 建房與開團回傳使用 `resilientRoomSnapshot()`；完整快照失敗時仍能回傳核心房間資料。
+- 前端核心事件優先綁定包含建立、加入、開始跑團與轉盤。
+
+
+## 60-cpp.21.4 提交行動穩定性
+
+- `POST /api/rooms/:id/actions`：規則引擎仍可正常阻止行動，但規則引擎本身異常時降級，不再拖垮 action event 持久化。
+- action 成功後的房間快照改成 viewer-filtered `roomSnapshotForViewer()`，且快照異常不再把已成功的 action 回成 500。
+- 前端 `submitActionCritical()` 在 `bindView()` 最前段綁定，避免後續大型 UI 模組例外造成「宣告行動」按鈕無反應。
+
+
+## 61-cpp.22 平面地圖＋節點
+- `room_map_nodes` 新增 `x_percent / y_percent / node_type / icon`。
+- 房間 `map_image_url` 作為平面圖底圖，節點以百分比座標覆蓋。
+- 前端 `planarMapHTML()` 繪製 SVG 連線；DM `bindPlanarMap()` 可拖曳節點、雙擊新增。
+- 玩家點節點移動；有隊伍沿隊伍移動，無隊伍走 `/api/rooms/:id/location`。
+
+
+## 61-cpp.22.1 節點刪除 Hotfix
+- `LegacyCompat.cpp`：新增安全節點刪除引用清理。
+- `index.html`：新增共用 `deleteMapNodeCritical()`，並在節點編輯器提供刪除入口。
+
+## 62-cpp.23 事件型技能／狀態型技能
+- 新增獨立 C++ `EventSkillSystem`，整合玩家、怪物、NPC 與戰鬥狀態觸發器。
+- 多段攻擊、事件條件、狀態疊層、來源獨立標記、傷害／治療倍率均由 C++ 執行。
+- `畫兵成真`：`1+精神*2` × 3 Hit。
+- `速寫標記`：造成傷害／負面效果累積攻標記；正面效果／受傷／受治療累積療標記。
+
+## 62-cpp.23.1 場地技能
+- `combat_field_effects`：整場戰鬥領域資料。
+- `AUTO_COMBAT_START`：在 `COMBAT_STARTED` 自動建立場地。
+- 場地 Trigger/Condition/Effect 與既有事件技能核心共用。
+- 戰鬥結束清場、快照、房間備份、全站備份皆已接線。
+
+
+## 63-cpp.24 儀式學雙面板
+- 儀式配方保存材料、元素、佈置節點、步驟、成功／失敗效果。
+- 房間儀式場建立 `ritual_instances`，支援放置、移除、啟動、推進、失敗與撤除。
+- 成功／失敗效果共用 EventSkillSystem Effect 核心。
+
+
+## 63-cpp.24.1 儀式學成長與研究
+- C++：儀式 XP、等級、點數帳本、研究遮罩、研究 API、首次完成／失敗防刷獎勵。
+- PostgreSQL：`character_ritual_research` 與儀式研究設定欄位。
+- 前端：儀式研究進度條、投入點數、Lv/XP/可用點數資訊、DM 研究調整。
+- 任務／道具可透過 `ritual_xp` 發放研究經驗。
+
+
+## 64-cpp.25 角色正式等階／登階儀式
+- C++ `characterTierBudget()` 固定 0～10階總屬性額度；角色小級限制 1～4。
+- 玩家 PATCH 只允許五項基礎屬性總和與剩餘點數精確等於目前大階額度。
+- 幸運不參與自由加點；生命／耐力／理智／意志維持衍生公式。
+- `POST /api/admin/players/:id/character-rank/advance` 處理 0→1 與同階小級推進。
+- 角色到本階4級後，跨階只能由 `登階儀式`／`登神儀式` 成功結果觸發。
+- `ritual_studies.ascension_from_tier / ascension_to_tier` 保存登階來源與目標。
+- Render integration smoke 覆蓋 0→1、1階1→4、4級阻擋、登階儀式→2階1級與新額度補足。
+
+
+## 64-cpp.25.4 統一互動
+- 行動／說話／待機共用既有 C++ `/actions` 路由，不新增平行 Node/JS 後端。
+- 聲音規則、節點噪音與怪物警戒均在 C++ 後端執行。
+
+## 65-cpp.26 魔法學完整系統
+- 七元素容量與既有元素上限加成保留。
+- 魔法技能樹新增施放元素成本、魔法書要求與技能模板連結。
+- `POST /api/magic-studies/{id}/cast` 由 C++ 驗證學習狀態／元素成本並共用戰鬥技能核心。
+- 玩家、怪物、NPC 元素親和／抗性／弱點已接入 C++ 傷害計算。
+
+## 65-cpp.26.2 角色立繪與手機版收尾
+- 新增獨立角色立繪欄位與 PostgreSQL 圖片表，不會覆蓋原玩家頭像。
+- 玩家與 DM 均可貼網址或直接上傳 JPG／PNG／WebP，C++ 驗證真實檔頭與 5 MB 上限。
+- 角色備份／還原與全站匯出納入立繪圖片。
+- 前端角色頁加入立繪區，手機版採單欄完整縮放；同時補強 safe-area、Modal、表單與地圖觸控版面。
+
+
+
+## 65-cpp.26.3 房間立繪舞台與手機版第二輪
+- 房間畫面可顯示玩家／NPC 立繪，支援跟隨戰鬥當前角色、手動固定、左右切換與隱藏。
+- NPC 互動視窗直接使用既有 `image_url` 作對話立繪，未建立新的後端資料分支。
+- 手機導覽改為固定 6 格：場景／角色／技能／道具／世界／更多；其餘頁面收進底部更多面板。
+- DM 管理內容在手機採單欄卡片堆疊，寬內容維持局部捲動。
+
+## 65-cpp.26.4 多立繪與戰鬥 UI 第一版
+- C++ 新增玩家／NPC 多立繪 CRUD、上傳與圖片讀取；active 立繪同步回既有欄位，舊前端仍可讀取。
+- `character_portrait_variants` 與 `npc_portrait_variants` 納入 migration、角色備份與全站備份。
+- NPC 房間 world/snapshot 新增 `portrait_url`，對話互動因使用 `nt.*` 會直接取得目前 NPC 立繪。
+- 前端戰鬥 UI 只重組既有 C++ 戰鬥 API：基本攻擊、技能、AI、跳過、反應與復甦仍由後端驗證。
+- 手機固定戰鬥列不複製戰鬥計算，只觸發同頁既有操作，因此桌面／手機共享相同規則。
+
+## 65-cpp.26.5 任務／自由屬性點 hotfix
+
+- `/api/admin/tasks` 現在正規化 `target_user_id`、`profession_id`、`required_faction_id` 的空值／0，並由 C++ 驗證任務類型必填條件。
+- 新增 `/api/admin/players/{id}/attribute-points/grant`，供 DM 給予玩家額外自由屬性點。
+- 角色屬性有效總額 = 大階固定額度 + DM 額外額度；玩家 PATCH 只能重新分配既有總額。
+- 任務完成與登階流程會保留 DM 額外額度。
+
+
+## 65-cpp.26.7 地圖 UX
+
+本版不新增 Node.js 後端；房間、節點與移動規則仍由既有 C++/Drogon API 處理。前端只新增視野控制、手機手勢、可達提示與 DM 安全編輯模式。
+
+
+## 65-cpp.26.7 DM 面板 UX
+
+本版不新增後端 API；既有 DM 權限與 C++ 路由保持不變。前端將大量平鋪分頁改為分類側欄、搜尋、快速統計與手機可折疊導航。
+
+
+## 65-cpp.26.8 登入 UX
+
+- 後端登入／註冊 API 不變，仍由 C++ 驗證。
+- 前端登入頁新增 responsive 雙欄／單卡、密碼顯示、busy state、帳號名稱記憶與 PWA 安裝入口。
+- 不儲存密碼；只在成功登入後保存 `rpg_last_username`。
+
+
+## 65-cpp.26.9 商店管理
+- 商店建立／PATCH 欄位清洗已集中到 `normalizeShopItemWrite`。
+- 部分 PATCH 不會再注入預設 `rank=G`；改分類、上下架時可安全保留原商品資料。
+- 玩家端商店 UX 仍呼叫既有 C++ `/api/shop`、`/api/shop/{id}/buy`、`/api/shop/sell`、`/api/shop/transactions`。
+
+
+## 65-cpp.26.10 玩家角色工作區
+
+本版集中改善玩家端角色卡／背包／技能／裝備 UI。角色儲存、自由屬性點總額、道具使用、技能施放與裝備配置仍呼叫既有 C++ API 驗證，沒有新增前端信任邏輯。
