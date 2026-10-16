@@ -2760,9 +2760,38 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
       const auto outputCategoryForBonus = stringValue(outputForBonus["category"]);
       const bool isSigilCraft = recipeCategoryForBonus.find("符") != std::string::npos ||
                                 outputCategoryForBonus.find("符") != std::string::npos;
+      const bool isAlchemyCraft = !isSigilCraft &&
+          (recipeCategoryForBonus.find("丹") != std::string::npos || outputCategoryForBonus.find("丹") != std::string::npos ||
+           stringValue(recipe["recipe_type"]).find("丹") != std::string::npos);
       auto craftRank = stringValue(outputForBonus["rank"], stringValue(recipe["rank"], "G"));
       std::transform(craftRank.begin(), craftRank.end(), craftRank.begin(),
                      [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+      Json::Value craftSkillData{Json::objectValue};
+      std::int64_t craftSuccessRateBase = intValue(config["success_rate"], 100);
+      if (isSigilCraft || isAlchemyCraft) {
+        const std::string requiredCraftSkill = isSigilCraft ? "製符" : "煉丹";
+        const Json::Value* craftSkill = nullptr;
+        if (character["skills"].isArray()) {
+          for (const auto& skill : character["skills"]) {
+            const auto data = skill["data"].isObject() ? skill["data"] : Json::Value{Json::objectValue};
+            if (stringValue(skill["name"]) == requiredCraftSkill || stringValue(data["craft_kind"]) == (isSigilCraft ? "sigil" : "alchemy")) { craftSkill = &skill; craftSkillData = data; break; }
+          }
+        }
+        if (!craftSkill) throw ApiError(drogon::k403Forbidden, "需要先學會「" + requiredCraftSkill + "」技能才能製作");
+        const std::vector<std::string> craftRanks{"G","F","E","D","C","B","A","S","SS","SSS"};
+        const auto rankIndex = std::find(craftRanks.begin(), craftRanks.end(), craftRank);
+        auto maxCraftRank = stringValue(craftSkillData["craft_max_rank"], "G");
+        std::transform(maxCraftRank.begin(), maxCraftRank.end(), maxCraftRank.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        const auto maxRankIndex = std::find(craftRanks.begin(), craftRanks.end(), maxCraftRank);
+        if (rankIndex == craftRanks.end()) throw ApiError(drogon::k400BadRequest, "成品品階無效");
+        if (maxRankIndex == craftRanks.end() || rankIndex - craftRanks.begin() > maxRankIndex - craftRanks.begin())
+          throw ApiError(drogon::k403Forbidden, "製作技能目前最高只能製作 " + (maxRankIndex == craftRanks.end() ? std::string("G") : *maxRankIndex) + " 級成品");
+        const auto configuredRates = craftSkillData["craft_success_by_rank"];
+        if (configuredRates.isObject() && configuredRates.isMember(craftRank)) craftSuccessRateBase = intValue(configuredRates[craftRank], craftSuccessRateBase);
+        else if (craftRank == "G") craftSuccessRateBase = 100;
+        else if (craftRank == "F") craftSuccessRateBase = 50;
+        else if (craftRank == "E") craftSuccessRateBase = 20;
+      }
       std::int64_t successRateBonus = 0;
       if (isSigilCraft) {
         const auto equippedCharacter = service->characterByUser(user.id);
@@ -2777,9 +2806,14 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
         addCraftBonus(equippedCharacter["equipped_weapons"]);
         addCraftBonus(equippedCharacter["equipped_equipment"]);
       }
-      successRateBonus = std::clamp<std::int64_t>(successRateBonus, 0, 100);
+      if ((isSigilCraft || isAlchemyCraft) && craftSkillData.isObject()) {
+        const auto skillCategory = stringValue(craftSkillData["craft_success_category"]);
+        if (skillCategory.empty() || skillCategory == "全部" || skillCategory == "all" || skillCategory == "*" || skillCategory == recipeCategoryForBonus)
+          successRateBonus += intValue(craftSkillData["craft_success_bonus"]);
+      }
+      successRateBonus = std::clamp<std::int64_t>(successRateBonus, -100, 100);
       const auto successRate = std::clamp<std::int64_t>(
-          intValue(config["success_rate"], 100) + successRateBonus, 0, 100);
+          craftSuccessRateBase + successRateBonus, 0, 100);
       const auto roll = randomInt(1, 100);
       const bool success = roll <= successRate;
       const bool consume = success || !config.isMember("failure_consumes") || config["failure_consumes"].asBool();
@@ -2832,6 +2866,7 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
       out["success"] = success;
       out["roll"] = roll;
       out["success_rate"] = Json::Int64(successRate);
+      out["success_rate_base"] = Json::Int64(craftSuccessRateBase);
       out["success_rate_bonus"] = Json::Int64(successRateBonus);
       out["failure_consumed"] = !success && consume;
       out["recipe"] = recipe;
