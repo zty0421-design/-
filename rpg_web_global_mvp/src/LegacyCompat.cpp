@@ -2754,7 +2754,32 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
       const auto cost = std::max<std::int64_t>(0, intValue(config["currency_cost"]));
       if (currency == "weird" && weirdCoins < cost) throw ApiError(drogon::k400BadRequest, "詭幣不足");
       if (currency == "game" && gameCoins < cost) throw ApiError(drogon::k400BadRequest, "遊戲幣不足");
-      const auto successRate = std::clamp<std::int64_t>(intValue(config["success_rate"], 100), 0, 100);
+      // 專武符書加成只影響符籙配方；只計入目前裝備的武器／裝備。
+      const auto outputForBonus = recipe["output"].isObject() ? recipe["output"] : Json::Value{Json::objectValue};
+      const auto recipeCategoryForBonus = stringValue(config["craft_category"]);
+      const auto outputCategoryForBonus = stringValue(outputForBonus["category"]);
+      const bool isSigilCraft = recipeCategoryForBonus.find("符") != std::string::npos ||
+                                outputCategoryForBonus.find("符") != std::string::npos;
+      auto craftRank = stringValue(outputForBonus["rank"], stringValue(recipe["rank"], "G"));
+      std::transform(craftRank.begin(), craftRank.end(), craftRank.begin(),
+                     [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+      std::int64_t successRateBonus = 0;
+      if (isSigilCraft) {
+        const auto equippedCharacter = service->characterByUser(user.id);
+        auto addCraftBonus = [&](const Json::Value& equipped) {
+          if (!equipped.isArray()) return;
+          for (const auto& item : equipped) {
+            const auto effects = item["effects"].isObject() ? item["effects"] : Json::Value{Json::objectValue};
+            const auto bonuses = effects["craft_success_rate_bonus_by_rank"];
+            if (bonuses.isObject()) successRateBonus += intValue(bonuses[craftRank]);
+          }
+        };
+        addCraftBonus(equippedCharacter["equipped_weapons"]);
+        addCraftBonus(equippedCharacter["equipped_equipment"]);
+      }
+      successRateBonus = std::clamp<std::int64_t>(successRateBonus, 0, 100);
+      const auto successRate = std::clamp<std::int64_t>(
+          intValue(config["success_rate"], 100) + successRateBonus, 0, 100);
       const auto roll = randomInt(1, 100);
       const bool success = roll <= successRate;
       const bool consume = success || !config.isMember("failure_consumes") || config["failure_consumes"].asBool();
@@ -2793,6 +2818,7 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
           Json::Value crafted = gearTemplateInstanceByName(service->database(), outputName, "weapon");
           for (const auto& key : output.getMemberNames()) if (key != "type") crafted[key] = output[key];
           crafted["name"] = outputName; crafted["quantity"] = Json::Int64(1);
+          if (crafted.get("bind_on_receive", false).asBool()) crafted["bound_to_user_id"] = Json::Int64(user.id);
           for (std::int64_t i = 0; i < outputQty; ++i) weapons.append(crafted);
         } else if (!outputName.empty()) {
           inventory = changeInventory(std::move(inventory), outputName, outputQty, outputCategory, output);
@@ -2806,6 +2832,7 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
       out["success"] = success;
       out["roll"] = roll;
       out["success_rate"] = Json::Int64(successRate);
+      out["success_rate_bonus"] = Json::Int64(successRateBonus);
       out["failure_consumed"] = !success && consume;
       out["recipe"] = recipe;
       out["character"] = characterRaw(service->database(), user.id);
@@ -3070,7 +3097,8 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
         const auto instance = gearTemplateInstanceByName(service->database(), itemName, "equipment");
         for (std::int64_t i = 0; i < qty; ++i) equipment.append(instance);
       } else if (itemType == "weapon") {
-        const auto instance = gearTemplateInstanceByName(service->database(), itemName, "weapon");
+        auto instance = gearTemplateInstanceByName(service->database(), itemName, "weapon");
+        if (instance.get("bind_on_receive", false).asBool()) instance["bound_to_user_id"] = Json::Int64(user.id);
         for (std::int64_t i = 0; i < qty; ++i) weapons.append(instance);
       } else {
         inventory = changeInventory(std::move(inventory), itemName, qty, itemType, item);

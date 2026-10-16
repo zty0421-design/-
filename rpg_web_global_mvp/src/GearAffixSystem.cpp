@@ -770,7 +770,28 @@ void registerGearAffixRoutes(const std::shared_ptr<CoreService>& service) {
       const auto user=requireUser(service,req); syncHeldTargets(service,user.id); const auto body=bodyOrEmpty(req);
       auto weapons=body["weapon_slots"].isObject()?body["weapon_slots"]:Json::Value{Json::objectValue};
       auto equipment=body["equipment_slots"].isObject()?body["equipment_slots"]:Json::Value{Json::objectValue};
-      auto validateTarget=[&](std::int64_t id,const std::string& type)->Json::Value{if(id<=0)return Json::Value{};const auto rows=db->execSqlSync("SELECT row_to_json(t)::text AS json_text FROM affix_targets t WHERE id=$1 AND owner_user_id=$2 AND target_type=$3",id,user.id,type);if(rows.empty())throw ApiError(drogon::k400BadRequest,"裝備不是你的持有物");return rowJson(rows);};
+      auto validateTarget=[&](std::int64_t id,const std::string& type)->Json::Value{
+        if(id<=0)return Json::Value{};
+        const auto rows=db->execSqlSync("SELECT row_to_json(t)::text AS json_text FROM affix_targets t WHERE id=$1 AND owner_user_id=$2 AND target_type=$3",id,user.id,type);
+        if(rows.empty())throw ApiError(drogon::k400BadRequest,"裝備不是你的持有物");
+        auto target=rowJson(rows);
+        const auto boundTo=integer(target["data"]["bound_to_user_id"]);
+        if(boundTo>0&&boundTo!=user.id)throw ApiError(drogon::k403Forbidden,"這件裝備已綁定其他玩家");
+        const auto requiredClass=trimmed(str(target["data"]["requirements"]["class_name"]));
+        if(!requiredClass.empty()){
+          const auto classRows=db->execSqlSync("SELECT main_class,sub_classes::text AS sub_classes_text FROM character_cards WHERE user_id=$1",user.id);
+          bool matches=!classRows.empty()&&trimmed(classRows[0]["main_class"].as<std::string>())==requiredClass;
+          if(!matches&&!classRows.empty()&&!classRows[0]["sub_classes_text"].isNull()){
+            const auto classes=parseJson(classRows[0]["sub_classes_text"].as<std::string>(),Json::Value{Json::arrayValue});
+            if(classes.isArray())for(const auto& entry:classes){
+              const auto name=entry.isString()?entry.asString():(entry.isObject()?trimmed(str(entry["name"],str(entry["title"]))):std::string{});
+              if(name==requiredClass){matches=true;break;}
+            }
+          }
+          if(!matches)throw ApiError(drogon::k400BadRequest,"此裝備限「"+requiredClass+"」職業使用");
+        }
+        return target;
+      };
       const auto mainId=integer(weapons["main"]),subId=integer(weapons["sub"]); if(mainId>0&&mainId==subId)throw ApiError(drogon::k400BadRequest,"主武器與副武器不能是同一件");
       auto mainTarget=validateTarget(mainId,"weapon"); auto subTarget=validateTarget(subId,"weapon");
       if(!mainTarget.isNull()&&integer(mainTarget["data"]["weapon_hands"],1)>=2&&subId>0)throw ApiError(drogon::k400BadRequest,"雙手武器會同時占用主／副武器槽");

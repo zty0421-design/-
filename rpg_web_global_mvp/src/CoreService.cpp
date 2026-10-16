@@ -2751,6 +2751,56 @@ Json::Value CoreService::characterByUser(std::int64_t userId) const {
       character["active_state_mechanics"].append(state);
     }
   }
+  // [功能備註｜裝備被動屬性] 穿戴中的裝備被動百分比，納入角色實際屬性與衍生值。
+  Json::Value gearAttributePercent{Json::objectValue};
+  double allGearAttributePercent = 0.0;
+  auto collectGearAttributePercent = [&](const Json::Value& equipped) {
+    if (!equipped.isArray()) return;
+    for (const auto& item : equipped) {
+      const auto effects = item["effects"].isObject() ? item["effects"] : Json::Value{Json::objectValue};
+      const auto list = effects["list"];
+      if (!list.isArray()) continue;
+      for (const auto& effect : list) {
+        if (!effect.isObject() || stringValue(effect["timing"], "passive") != "passive") continue;
+        const auto type = stringValue(effect["type"]);
+        const auto value = effect["value"].isNumeric() ? effect["value"].asDouble() : 0.0;
+        if (type == "all_attributes_percent") allGearAttributePercent += value;
+        else if (type == "stat_percent") {
+          const auto key = stringValue(effect["key"]);
+          if (!key.empty()) {
+            const auto oldValue = gearAttributePercent.isMember(key) ? gearAttributePercent[key].asDouble() : 0.0;
+            gearAttributePercent[key] = oldValue + value;
+          }
+        }
+      }
+    }
+  };
+  collectGearAttributePercent(character["equipped_weapons"]);
+  collectGearAttributePercent(character["equipped_equipment"]);
+  for (const auto* key : {"strength", "agility", "constitution", "spirit", "luck", "fifth"}) {
+    const auto oldValue = gearAttributePercent.isMember(key) ? gearAttributePercent[key].asDouble() : 0.0;
+    gearAttributePercent[key] = oldValue + allGearAttributePercent;
+  }
+  auto applyGearPercent = [&](Json::Value& target, const char* key) {
+    const auto percent = gearAttributePercent.isMember(key) ? gearAttributePercent[key].asDouble() : 0.0;
+    if (percent == 0.0) return;
+    const auto base = std::max<std::int64_t>(0, integerValue(target));
+    target = Json::Int64(std::max<std::int64_t>(0, static_cast<std::int64_t>(
+        std::llround(static_cast<double>(base) * (1.0 + percent / 100.0)))));
+  };
+  applyGearPercent(character["final_strength"], "strength");
+  applyGearPercent(character["final_agility"], "agility");
+  applyGearPercent(character["final_constitution"], "constitution");
+  applyGearPercent(character["final_spirit"], "spirit");
+  applyGearPercent(character["luck"], "luck");
+  if (stringValue(character["faction"], "東國") == "西國") {
+    applyGearPercent(character["faith"], "fifth");
+    applyGearPercent(character["final_faith"], "fifth");
+  } else {
+    applyGearPercent(character["great_way"], "fifth");
+    applyGearPercent(character["final_great_way"], "fifth");
+  }
+
   // [功能備註｜角色衍生值] 58-cpp.19：角色卡衍生值一律由 C++ 依最終體質／精神重算。
   // 不再相信舊資料庫曾留下的 0 值，避免生命上限、耐力、理智、意志顯示成 0。
   const auto derivedConstitution = nonNegative(character["final_constitution"]);
