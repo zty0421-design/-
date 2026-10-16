@@ -6654,7 +6654,7 @@ function adminSkillsHTML(createOnly=false){
 
         <div class="field"><label>技能樹分組</label><input id="stTreeGroup" maxlength="120" placeholder="例如：火焰法術"></div>
         <div class="field"><label>技能樹排序</label><input id="stTreeOrder" type="number" value="0"></div>
-        <div class="field"><label>前置技能 ID</label><input id="stPrerequisites" placeholder="例如：12, 18"><div class="muted">可填多個技能模板 ID，以逗號分隔；C++ 會在學習時強制驗證。</div></div>
+        <div class="field"><label>前置技能 ID</label><input id="stPrerequisites" placeholder="例如：12, 18"><div class="muted">可填多個技能模板 ID，以逗號分隔。</div></div><div class="field"><label>所屬職業 ID</label><select id="stTreeProfession"><option value="0">不加入職業技能樹</option>${(state.professions||[]).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></div><div class="field"><label>條件判定</label><select id="stTreeLogic"><option value="AND">全部符合（AND）</option><option value="OR" ${skillData(skill).skill_tree?.requirement_logic==="OR"?"selected":""}>符合任一（OR）</option></select></div><div class="field"><label>技能書名稱</label><input id="stTreeBook" placeholder="可留空"></div><div class="field"><label>技能書數量</label><input id="stTreeBookQty" type="number" min="1" value="1"></div><div class="field"><label><input id="stTreeConsumeBook" type="checkbox" checked> 學習時消耗技能書</label></div>
         <div class="field"><label>標籤</label><input id="stTags" placeholder="火屬性, 範圍, 法術"></div>
 
         <div class="field">
@@ -6956,6 +6956,9 @@ function adminProfessionsHTML(){
         <div class="field"><label>職業名稱</label><input id="pfName" required maxlength="100"></div>
         <div class="field"><label>用途</label><select id="pfCategory"><option value="both">主／副皆可</option><option value="main">只可主職業</option><option value="sub">只可副職業</option></select></div>
         <div class="field"><label>起始等階</label><select id="pfRank">${PROFESSION_RANKS.map(x=>`<option>${x}</option>`).join('')}</select></div>
+        <div class="field"><label>每次職業升級技能點</label><input id="pfSkillPointsPerLevel" type="number" min="0" value="2"></div>
+        <div class="field"><label>技能重置道具</label><input id="pfSkillResetItem" placeholder="之後設定；留空時暫停重置"></div>
+        <div class="field"><label>重置道具數量</label><input id="pfSkillResetQty" type="number" min="1" value="1"></div>
         <div class="field"><label>取得所需職業書</label><input id="pfBookName" maxlength="120" placeholder="留空會自動使用「職業名稱＋職業書」"></div>
         <div class="field"><label>職業書數量</label><input id="pfBookQty" type="number" min="1" value="1"></div>
         <div class="field" style="grid-column:1/-1"><label>說明</label><textarea id="pfDescription" rows="3"></textarea></div>
@@ -6975,7 +6978,7 @@ function openProfessionEditor(profession){
   const autoSkills=professionAutoSkillRules(profession);
   $('#modalTitle').textContent=`修改職業：${profession.name}`;
   $('#modalBody').innerHTML=`
-    <div class="edit-grid"><div class="field"><label>職業名稱</label><input id="editPfName" value="${esc(profession.name||'')}"></div><div class="field"><label>用途</label><select id="editPfCategory"><option value="both" ${profession.category==='both'?'selected':''}>主／副皆可</option><option value="main" ${profession.category==='main'?'selected':''}>只可主職業</option><option value="sub" ${profession.category==='sub'?'selected':''}>只可副職業</option></select></div><div class="field"><label>起始等階</label><select id="editPfRank">${PROFESSION_RANKS.map(x=>`<option ${profession.rank===x?'selected':''}>${x}</option>`).join('')}</select></div><div class="field"><label>取得所需職業書</label><input id="editPfBookName" value="${esc(professionBookInfo(profession).name)}"></div><div class="field"><label>職業書數量</label><input id="editPfBookQty" type="number" min="1" value="${professionBookInfo(profession).quantity}"></div><div class="field" style="grid-column:1/-1"><label>說明</label><textarea id="editPfDescription" rows="3">${esc(profession.description||'')}</textarea></div></div>
+    <div class="edit-grid"><div class="field"><label>職業名稱</label><input id="editPfName" value="${esc(profession.name||'')}"></div><div class="field"><label>用途</label><select id="editPfCategory"><option value="both" ${profession.category==='both'?'selected':''}>主／副皆可</option><option value="main" ${profession.category==='main'?'selected':''}>只可主職業</option><option value="sub" ${profession.category==='sub'?'selected':''}>只可副職業</option></select></div><div class="field"><label>起始等階</label><select id="editPfRank">${PROFESSION_RANKS.map(x=>`<option ${profession.rank===x?'selected':''}>${x}</option>`).join('')}</select></div><div class="field"><label>每次職業升級技能點</label><input id="editPfSkillPointsPerLevel" type="number" min="0" value="${Math.max(0,Number(profession.config?.skill_points_per_level??2))}"></div><div class="field"><label>技能重置道具</label><input id="editPfSkillResetItem" value="${esc(profession.config?.skill_reset_item_name||"")}" placeholder="之後設定；留空時暫停重置"></div><div class="field"><label>重置道具數量</label><input id="editPfSkillResetQty" type="number" min="1" value="${Math.max(1,Number(profession.config?.skill_reset_item_quantity)||1)}"></div><div class="field"><label>取得所需職業書</label><input id="editPfBookName" value="${esc(professionBookInfo(profession).name)}"></div><div class="field"><label>職業書數量</label><input id="editPfBookQty" type="number" min="1" value="${professionBookInfo(profession).quantity}"></div><div class="field" style="grid-column:1/-1"><label>說明</label><textarea id="editPfDescription" rows="3">${esc(profession.description||'')}</textarea></div></div>
     <div class="section"><div class="resource-editor-head"><div><b>職業特殊資源</b><div class="muted">修改上限時，玩家現有數值會限制在新上限。</div></div><button type="button" id="editAddPfResource" class="btn secondary small">＋ 新增特殊資源</button></div><div id="editPfResourceList" class="resource-editor-list">${resources.map(resource=>professionResourceRowHTML(resource,'editpf')).join('')}</div></div>
     <div class="section"><div class="resource-editor-head"><div><b>升級自動取得技能</b><div class="muted">已經達到該里程碑的角色，在同步後也會自動補發技能。</div></div><button type="button" id="editAddPfAutoSkill" class="btn secondary small">＋ 新增自動技能</button></div><div id="editPfAutoSkillList" class="section">${autoSkills.map(professionAutoSkillRowHTML).join('')}</div></div>
     <div class="section"><div class="resource-editor-head"><div><b>職業持續效果</b><div class="muted">只要角色持有這個職業就會自動計算。</div></div><button type="button" id="editAddPfEffect" class="btn secondary small">＋ 新增效果</button></div><div id="editPfEffectsList" class="effect-builder section">${normalizeEffectListUI(professionEffects(profession)).map(effectRowHTML).join('')}</div></div>
@@ -6983,7 +6986,7 @@ function openProfessionEditor(profession){
   const container=$('#editPfResourceList');bindProfessionResourceEditor(container);$('#editAddPfResource').onclick=()=>addProfessionResourceRow(container,{});
   const autoContainer=$('#editPfAutoSkillList');bindProfessionAutoSkillRows(autoContainer);$('#editAddPfAutoSkill').onclick=()=>{autoContainer.insertAdjacentHTML('beforeend',professionAutoSkillRowHTML());bindProfessionAutoSkillRows(autoContainer);};
   const effectContainer=$('#editPfEffectsList');bindEffectBuilder(effectContainer);$('#editAddPfEffect').onclick=()=>addEffectRow(effectContainer,{type:'stat_flat',key:'strength',timing:'passive'});
-  $('#modal').classList.remove('hidden');$('#modalCancel').onclick=closeModal;$('#modalOk').onclick=async()=>{try{await api(`/api/admin/professions/${profession.id}`,{method:'PATCH',body:JSON.stringify({name:$('#editPfName').value,category:$('#editPfCategory').value,rank:$('#editPfRank').value,description:$('#editPfDescription').value,book_name:$('#editPfBookName').value,book_quantity:Number($('#editPfBookQty').value)||1,special_resources:collectProfessionResources(container),auto_skills:collectProfessionAutoSkills(autoContainer),effects:{list:collectEffectRows(effectContainer)}})});await Promise.all([loadProfessions(),loadSkillTemplates(),loadMyCharacter(),loadAdminCharacters()]);closeModal();render();toast('職業已修改');}catch(error){$('#editPfError').textContent=error.message;}};
+  $('#modal').classList.remove('hidden');$('#modalCancel').onclick=closeModal;$('#modalOk').onclick=async()=>{try{await api(`/api/admin/professions/${profession.id}`,{method:'PATCH',body:JSON.stringify({name:$('#editPfName').value,category:$('#editPfCategory').value,rank:$('#editPfRank').value,description:$('#editPfDescription').value,book_name:$('#editPfBookName').value,book_quantity:Number($('#editPfBookQty').value)||1,special_resources:collectProfessionResources(container),auto_skills:collectProfessionAutoSkills(autoContainer),effects:{list:collectEffectRows(effectContainer)},config:{...(profession.config||{}),book_name:$("#editPfBookName").value,book_quantity:Number($("#editPfBookQty").value)||1,special_resources:collectProfessionResources(container),auto_skills:collectProfessionAutoSkills(autoContainer),effects:{list:collectEffectRows(effectContainer)},skill_points_per_level:Math.max(0,Number($("#editPfSkillPointsPerLevel").value)||0),skill_reset_item_name:$("#editPfSkillResetItem").value.trim(),skill_reset_item_quantity:Math.max(1,Number($("#editPfSkillResetQty").value)||1)}})});await Promise.all([loadProfessions(),loadSkillTemplates(),loadMyCharacter(),loadAdminCharacters()]);closeModal();render();toast('職業已修改');}catch(error){$('#editPfError').textContent=error.message;}};
 }
 
 // [前端功能備註｜召喚物] adminSummonsHTML：負責產生／更新畫面。修改 UI 時可直接搜尋此函式名稱。
@@ -7595,6 +7598,32 @@ function openProfessionAcquire(){
 }
 
 // [前端功能備註｜技能] openSkillPicker：負責此前端功能的資料處理或互動。修改 UI 時可直接搜尋此函式名稱。
+function openProfessionSkillTree(){
+  const character=state.myCharacter||{};
+  const owned=Object.values(character.profession_progress||{}).filter(x=>x&&x.id);
+  const professions=owned.map(entry=>professionById(entry.id)||{id:entry.id,name:entry.name||"職業"});
+  if(!professions.length){toast("先取得職業，才能查看職業技能樹。");return;}
+  $("#modalTitle").textContent="職業技能樹";
+  $("#modalBody").innerHTML="<div class='muted'>技能點："+(Number(character.skill_points)||0)+"。技能點會由學習時扣除；各技能可設定 AND／OR 條件。</div><div class='field'><label>選擇職業</label><select id='professionSkillTreeSelect'>"+professions.map(p=>"<option value='"+Number(p.id)+"'>"+esc(p.name)+"</option>").join("")+"</select></div><div id='professionSkillTreeItems' class='section'></div><div id='professionSkillTreeReset' class='section'></div><div id='professionSkillTreeError' class='error'></div>";
+  const ownedSkills=character.skills||[];
+  const draw=()=>{
+    const id=Number($("#professionSkillTreeSelect").value);
+    const items=(state.skillTemplates||[]).filter(skill=>Number(skillData(skill).skill_tree?.profession_id)===id).sort((a,b)=>(Number(skillData(a).tree_order)||0)-(Number(skillData(b).tree_order)||0));
+    $("#professionSkillTreeItems").innerHTML=items.length?items.map(skill=>{
+      const d=skillData(skill),tree=d.skill_tree||{},known=ownedSkills.some(x=>Number(x.template_id)===Number(skill.id));
+      const cost=Number(tree.skill_point_cost??d.learn_cost?.skill_points??d.learn_skill_points??1)||0;
+      const pre=(d.prerequisite_skill_ids||[]).map(x=>Number(x)).filter(Boolean);
+      const names=pre.map(x=>{const t=(state.skillTemplates||[]).find(y=>Number(y.id)===x);return t?t.name:"#"+x;});
+      const gates=[names.length?"前置："+names.join("、"):"",tree.skill_book_name?"技能書："+tree.skill_book_name+" × "+(Number(tree.skill_book_quantity)||1):""].filter(Boolean).join(" · ")||"無額外條件";
+      return "<div class='card pad section'><b>"+esc(skill.name)+"</b><div class='muted'>"+esc(skill.category||"一般")+" · 技能點 "+cost+" · "+(tree.requirement_logic==="OR"?"符合任一條件":"全部條件")+"</div><div class='muted'>"+esc(gates)+"</div>"+(skill.description?"<div>"+esc(skill.description)+"</div>":"")+"<button class='btn learn-profession-tree-skill' data-id='"+Number(skill.id)+"' "+(known?"disabled":"")+">"+(known?"已學會":"學習")+"</button></div>";
+    }).join(""):"<div class='muted'>這個職業目前還沒有設定技能。請 DM 在技能管理中建立技能並填入所屬職業 ID。</div>";
+    const currentProfession=professionById(id);const resetConfig=currentProfession?.config||{};const resetName=String(resetConfig.skill_reset_item_name||"").trim();$("#professionSkillTreeReset").innerHTML=resetName?"<button class='btn danger' id='resetProfessionSkillTree'>使用 "+esc(resetName)+" × "+Math.max(1,Number(resetConfig.skill_reset_item_quantity)||1)+" 重置此職業技能</button>":"<div class='muted'>技能重置尚未啟用，請 DM 設定重置道具。</div>";const resetButton=$("#resetProfessionSkillTree");if(resetButton)resetButton.onclick=async()=>{if(!window.confirm("將消耗重置道具並退還此職業技能樹已花費的技能點，確定繼續？"))return;try{const result=await api("/api/character/professions/"+id+"/skill-tree/reset",{method:"POST"});state.myCharacter=result.character;closeModal();render();toast("技能樹已重置，退還 "+Number(result.refunded_skill_points||0)+" 點技能點");}catch(error){$("#professionSkillTreeError").textContent=error.message;}};
+    $(".learn-profession-tree-skill").forEach(btn=>btn.onclick=async()=>{try{btn.disabled=true;const result=await api("/api/character/skills/from-template",{method:"POST",body:JSON.stringify({template_id:Number(btn.dataset.id)})});state.myCharacter=result.character;closeModal();render();toast("技能已學會");}catch(error){$("#professionSkillTreeError").textContent=error.message;btn.disabled=false;}});
+  };
+  $("#professionSkillTreeSelect").onchange=draw;
+  $("#modal").classList.remove("hidden");$("#modalCancel").onclick=closeModal;$("#modalOk").onclick=closeModal;draw();
+}
+
 function openSkillPicker(){
   const skills=(state.skillTemplates||[]).filter(skill=>skillCanManualLearn(skill));
   if(!skills.length){toast('目前沒有可直接學習的技能。技能必須由 DM 設定學習代價，或透過職業／任務取得。');return;}
@@ -7636,7 +7665,7 @@ function openSkillTemplateEditor(skill){
 
       <div class="field"><label>技能樹分組</label><input id="editSkillTreeGroup" maxlength="120" value="${esc(skill.tree_group||'')}"></div>
       <div class="field"><label>技能樹排序</label><input id="editSkillTreeOrder" type="number" value="${Number(skill.tree_order)||0}"></div>
-      <div class="field"><label>前置技能 ID</label><input id="editSkillPrerequisites" value="${(skill.prerequisite_skill_ids||[]).join(', ')}"></div>
+      <div class="field"><label>前置技能 ID</label><input id="editSkillPrerequisites" value="${(skill.prerequisite_skill_ids||[]).join(', ')}"></div><div class="field"><label>所屬職業 ID</label><select id="editSkillTreeProfession"><option value="0">不加入職業技能樹</option>${(state.professions||[]).map(p=>`<option value="${p.id}" ${Number(p.id)===Number(skillData(skill).skill_tree?.profession_id)?"selected":""}>${esc(p.name)}</option>`).join("")}</select></div><div class="field"><label>條件判定</label><select id="editSkillTreeLogic"><option value="AND" ${skillData(skill).skill_tree?.requirement_logic==="OR"?"":"selected"}>全部符合（AND）</option><option value="OR" ${skillData(skill).skill_tree?.requirement_logic==="OR"?"selected":""}>符合任一（OR）</option></select></div><div class="field"><label>技能書名稱</label><input id="editSkillTreeBook" value="${esc(skillData(skill).skill_tree?.skill_book_name||"")}"></div><div class="field"><label>技能書數量</label><input id="editSkillTreeBookQty" type="number" min="1" value="${Math.max(1,Number(skillData(skill).skill_tree?.skill_book_quantity)||1)}"></div><div class="field"><label><input id="editSkillTreeConsumeBook" type="checkbox" ${skillData(skill).skill_tree?.consume_skill_book===false?"":"checked"}> 學習時消耗技能書</label></div>
       <div class="field"><label>標籤</label><input id="editSkillTags" value="${(skill.tags||[]).join(', ')}"></div>
 
       <div class="field">
@@ -7929,6 +7958,7 @@ function openSkillTemplateEditor(skill){
                     required_profession_level:Number($('#editSkillLearnLevel').value)||1
                   },
                   data:{
+                    tree_group:$('#editSkillTreeGroup').value,tree_order:Number($('#editSkillTreeOrder').value)||0,prerequisite_skill_ids:$('#editSkillPrerequisites').value.split(/[,，]/).map(x=>Number(x.trim())).filter(Boolean),tags:$('#editSkillTags').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean),learn_cost:{mode:$('#editSkillLearnMode').value,item_name:$('#editSkillLearnItem').value,item_quantity:Number($('#editSkillLearnItemQty').value)||1,weird_coins:Number($('#editSkillLearnWeird').value)||0,game_coins:Number($('#editSkillLearnGame').value)||0,skill_points:Number($('#editSkillLearnSkillPoints').value)||0,required_profession_id:Number($('#editSkillLearnProfession').value)||0,required_profession_rank:$('#editSkillLearnRank').value,required_profession_level:Number($('#editSkillLearnLevel').value)||1},skill_tree:{profession_id:Number($('#editSkillTreeProfession').value)||0,requirement_logic:$('#editSkillTreeLogic').value,skill_book_name:$('#editSkillTreeBook').value.trim(),skill_book_quantity:Math.max(1,Number($('#editSkillTreeBookQty').value)||1),consume_skill_book:$('#editSkillTreeConsumeBook').checked},
                     craft_tag:$('#editSkillCraft').checked,
                     craft_success_category:$('#editSkillCraftSuccessCategory').value,
                     craft_success_bonus:Number($('#editSkillCraftSuccessBonus').value)||0,
@@ -9301,7 +9331,7 @@ function characterHTML(){
           <span class="badge" style="align-self:center">🪙 詭幣 ${Number(character.weird_coins)||0}</span>
           <button class="btn secondary" id="editMyCharacter">✏️ 修改角色卡</button>
           <button class="btn secondary" id="acquireProfession">📚 使用職業書</button>
-          <button class="btn" id="addSkillFromLibrary">📖 學習技能</button>
+          <button class="btn" id="openProfessionSkillTree">🌿 職業技能樹</button><button class="btn secondary" id="addSkillFromLibrary">📖 學習技能</button>
         </div>
 
       </div>
@@ -10975,6 +11005,7 @@ function bindView(){
 
   const addSkillFromLibrary=$('#addSkillFromLibrary');
   if(addSkillFromLibrary) addSkillFromLibrary.onclick=openSkillPicker;
+  const professionTreeButton=$('#openProfessionSkillTree');if(professionTreeButton)professionTreeButton.onclick=openProfessionSkillTree;
 
   $$('.adjust-class-resource').forEach(button=>{
     button.onclick=async()=>{
@@ -11449,6 +11480,7 @@ function bindView(){
                   required_profession_level:Number($('#stLearnLevel').value)||1
                 },
                 data:{
+                  tree_group:$('#stTreeGroup').value,tree_order:Number($('#stTreeOrder').value)||0,prerequisite_skill_ids:$('#stPrerequisites').value.split(/[,，]/).map(x=>Number(x.trim())).filter(Boolean),tags:$('#stTags').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean),learn_cost:{mode:$('#stLearnMode').value,item_name:$('#stLearnItem').value,item_quantity:Number($('#stLearnItemQty').value)||1,weird_coins:Number($('#stLearnWeird').value)||0,game_coins:Number($('#stLearnGame').value)||0,skill_points:Number($('#stLearnSkillPoints').value)||0,required_profession_id:Number($('#stLearnProfession').value)||0,required_profession_rank:$('#stLearnRank').value,required_profession_level:Number($('#stLearnLevel').value)||1},skill_tree:{profession_id:Number($('#stTreeProfession').value)||0,requirement_logic:$('#stTreeLogic').value,skill_book_name:$('#stTreeBook').value.trim(),skill_book_quantity:Math.max(1,Number($('#stTreeBookQty').value)||1),consume_skill_book:$('#stTreeConsumeBook').checked},
                   craft_tag:$('#stCraft').checked,
                   craft_success_category:$('#stCraftSuccessCategory').value,
                   craft_success_bonus:Number($('#stCraftSuccessBonus').value)||0,
@@ -11568,7 +11600,8 @@ function bindView(){
             book_quantity:Number($('#pfBookQty').value)||1,
             special_resources:collectProfessionResources(resourceContainer),
             auto_skills:collectProfessionAutoSkills(autoSkillContainer),
-            effects:{list:collectEffectRows(pfEffectContainer)}
+            effects:{list:collectEffectRows(pfEffectContainer)},
+            config:{book_name:$("#pfBookName").value,book_quantity:Number($("#pfBookQty").value)||1,special_resources:collectProfessionResources(resourceContainer),auto_skills:collectProfessionAutoSkills(autoSkillContainer),effects:{list:collectEffectRows(pfEffectContainer)},skill_points_per_level:Math.max(0,Number($("#pfSkillPointsPerLevel").value)||0),skill_reset_item_name:$("#pfSkillResetItem").value.trim(),skill_reset_item_quantity:Math.max(1,Number($("#pfSkillResetQty").value)||1)}
           })
         });
         await Promise.all([loadProfessions(),loadMyCharacter()]);
