@@ -3434,10 +3434,26 @@ function characterCraftSuccessBonusUI(character,category){
   },0);
 }
 
-// [前端功能備註｜配方／製作] recipeSuccessRateFor：負責此前端功能的資料處理或互動。修改 UI 時可直接搜尋此函式名稱。
+function recipeCraftSkillState(character,recipe){
+  const cfg=recipeConfig(recipe),out=recipeOutput(recipe);
+  const category=String(cfg.craft_category||recipe?.recipe_type||'').trim();
+  const outputCategory=String(out.category||'').trim();
+  const kind=(category.includes('符')||outputCategory.includes('符'))?'sigil':(category.includes('丹')||outputCategory.includes('丹'))?'alchemy':'';
+  if(!kind)return {kind:'',skill:null,rank:'G',maxRank:'SSS',locked:false};
+  const name=kind==='sigil'?'製符':'煉丹';
+  const skill=(Array.isArray(character?.skills)?character.skills:[]).find(x=>x?.name===name||skillData(x).craft_kind===kind)||null;
+  const ranks=['G','F','E','D','C','B','A','S','SS','SSS'];
+  const rank=String(out.rank||recipe?.rank||'G').toUpperCase();
+  const maxRank=String(skillData(skill).craft_max_rank||'G').toUpperCase();
+  return {kind,skill,rank,maxRank,locked:!skill||!ranks.includes(rank)||!ranks.includes(maxRank)||ranks.indexOf(rank)>ranks.indexOf(maxRank)};
+}
+
+// [前端功能備註｜配方／製作] recipeSuccessRateFor：依配方品階套用製作技能基礎成功率。
 function recipeSuccessRateFor(character,recipe){
-  const cfg=recipeConfig(recipe);
-  const base=Math.max(0,Math.min(100,Number(cfg.success_rate??100)||0));
+  const cfg=recipeConfig(recipe),craft=recipeCraftSkillState(character,recipe);
+  const rates=skillData(craft.skill).craft_success_by_rank||{};
+  let base=Math.max(0,Math.min(100,Number(cfg.success_rate??100)||0));
+  if(craft.kind){const defaults={G:100,F:50,E:20};if(rates[craft.rank]!==undefined)base=Number(rates[craft.rank])||0;else if(defaults[craft.rank]!==undefined)base=defaults[craft.rank];}
   const bonus=characterCraftSuccessBonusUI(character,cfg.craft_category||recipe?.recipe_type||'一般');
   return {base,bonus,total:Math.max(0,Math.min(100,base+bonus))};
 }
@@ -6727,6 +6743,7 @@ function adminSkillsHTML(createOnly=false){
           <div class="muted">可填正數或負數。例如火 +20、木 -10；角色持有技能時會直接反映在元素面板。</div>
           ${elementModifierInputsHTML('stAffinityModifiers',{})}
         </div>
+        <div class="field" style="grid-column:1/-1"><label>元素親和力百分比修正</label><div class="muted">填 25 代表乘以 1.25。</div>${elementModifierInputsHTML('stAffinityPercentModifiers',{})}</div>
 
         <div class="field" style="grid-column:1/-1">
           <label>持有技能時的元素儲存上限加成</label>
@@ -6794,6 +6811,7 @@ function adminSkillsHTML(createOnly=false){
           </label>
         </div>
 
+        <div class="field"><label>目前可製作最高品階</label><select id="stCraftMaxRank"><option value="G" selected>G</option><option value="F">F</option><option value="E">E</option><option value="D">D</option><option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option><option value="SS">SS</option><option value="SSS">SSS</option></select><div class="muted">技能升級後由 DM 調高上限。</div></div>
         <div class="field"><label>合成成功率加成類別</label><input id="stCraftSuccessCategory" maxlength="80" placeholder="例如：符籙；填「全部」代表所有類別"></div>
         <div class="field"><label>合成成功率加成（%）</label><input id="stCraftSuccessBonus" type="number" value="0" placeholder="例如：15"></div>
 
@@ -7738,6 +7756,7 @@ function openSkillTemplateEditor(skill){
         <div class="muted">正數增加、負數降低；會和角色基礎親和、裝備修正一起計算。</div>
         ${elementModifierInputsHTML('editSkillAffinityModifiers',elementAffinityModifierMap(skill))}
       </div>
+      <div class="field" style="grid-column:1/-1"><label>元素親和力百分比修正</label><div class="muted">填 25 代表乘以 1.25。</div>${elementModifierInputsHTML('editSkillAffinityPercentModifiers',skillData(skill).element_affinity_percent_modifiers||{})}</div>
 
       <div class="field" style="grid-column:1/-1">
         <label>持有技能時的元素儲存上限加成</label>
@@ -7805,6 +7824,7 @@ function openSkillTemplateEditor(skill){
         </label>
       </div>
 
+      <div class="field"><label>目前可製作最高品階</label><select id="editSkillCraftMaxRank">${CONTENT_RANKS.map(r=>`<option value="${r}" ${(skillData(skill).craft_max_rank||'G')===r?'selected':''}>${r}</option>`).join('')}</select><div class="muted">技能升級後由 DM 調高上限。</div></div>
       <div class="field"><label>合成成功率加成類別</label><input id="editSkillCraftSuccessCategory" maxlength="80" value="${esc(skillData(skill).craft_success_category||'')}" placeholder="例如：符籙；填「全部」代表所有類別"></div>
       <div class="field"><label>合成成功率加成（%）</label><input id="editSkillCraftSuccessBonus" type="number" value="${Number(skillData(skill).craft_success_bonus)||0}"></div>
 
@@ -7960,6 +7980,8 @@ function openSkillTemplateEditor(skill){
                   data:{
                     tree_group:$('#editSkillTreeGroup').value,tree_order:Number($('#editSkillTreeOrder').value)||0,prerequisite_skill_ids:$('#editSkillPrerequisites').value.split(/[,，]/).map(x=>Number(x.trim())).filter(Boolean),tags:$('#editSkillTags').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean),learn_cost:{mode:$('#editSkillLearnMode').value,item_name:$('#editSkillLearnItem').value,item_quantity:Number($('#editSkillLearnItemQty').value)||1,weird_coins:Number($('#editSkillLearnWeird').value)||0,game_coins:Number($('#editSkillLearnGame').value)||0,skill_points:Number($('#editSkillLearnSkillPoints').value)||0,required_profession_id:Number($('#editSkillLearnProfession').value)||0,required_profession_rank:$('#editSkillLearnRank').value,required_profession_level:Number($('#editSkillLearnLevel').value)||1},skill_tree:{profession_id:Number($('#editSkillTreeProfession').value)||0,requirement_logic:$('#editSkillTreeLogic').value,skill_book_name:$('#editSkillTreeBook').value.trim(),skill_book_quantity:Math.max(1,Number($('#editSkillTreeBookQty').value)||1),consume_skill_book:$('#editSkillTreeConsumeBook').checked},
                     craft_tag:$('#editSkillCraft').checked,
+                    craft_max_rank:$('#editSkillCraftMaxRank').value||'G',
+                    craft_success_by_rank:{G:100,F:50,E:20},
                     craft_success_category:$('#editSkillCraftSuccessCategory').value,
                     craft_success_bonus:Number($('#editSkillCraftSuccessBonus').value)||0,
                     unlock_game_coin:$('#editSkillUnlockGameCoin').checked,
@@ -7999,6 +8021,7 @@ function openSkillTemplateEditor(skill){
                     reaction_damage_multiplier:Math.max(0,Number($('#editSkillReactionDamage').value)||1),
                     reaction_guard_percent:Math.max(0,Number($('#editSkillReactionGuard').value)||30),
                     element_affinity_modifiers:collectElementModifierInputs('editSkillAffinityModifiers'),
+                    element_affinity_percent_modifiers:collectElementModifierInputs('editSkillAffinityPercentModifiers'),
                 element_storage_cap_bonus:collectElementModifierInputs('editSkillElementStorageCap'),
                     element_storage_generation:collectElementModifierInputs('editSkillElementGeneration'),
                     state_mechanic:collectStateMechanic('editSkill'),
@@ -10112,7 +10135,7 @@ function craftHTML(){
     <div class="card pad hero"><div><div class="muted">CRAFTING</div><h2>⚗️ 合成</h2><div class="muted">所有角色都能使用合成功能；部分配方需要先取得指定的製作技能。</div></div><div class="actions"><button id="refreshRecipes" class="btn secondary">↻ 重新整理</button></div></div>
     <div class="stat-grid section"><div class="stat"><div class="muted">詭幣</div><div class="n">${Number(character.weird_coins)||0}</div></div><div class="stat"><div class="muted">遊戲幣</div><div class="n" style="font-size:${character.game_coin_unlocked?'24px':'16px'}">${character.game_coin_unlocked?(Number(character.game_coins)||0):'🔒 未解鎖'}</div></div></div>
     <div class="grid2 section"><div class="card pad"><h3>材料／道具庫</h3><div class="user-list section">${inventory.length?inventory.map(item=>`<div class="user-row"><div><b>${esc(item.name)}</b>${item.category?`<div class="muted">類別：${esc(item.category)}</div>`:''}</div><span class="badge">× ${item.quantity}</span><div></div></div>`).join(''):'<div class="muted">目前沒有材料。</div>'}</div></div><div class="card pad"><h3>遊戲幣解鎖</h3><div class="muted">${character.game_coin_unlocked?'✅ 已解鎖。現在可以取得、持有與消耗遊戲幣。':'🔒 尚未解鎖。DM 可以在技能資料庫中把某個技能設定為「取得後解鎖遊戲幣」。'}</div></div></div>
-    <div class="card pad section"><h3>可用配方</h3><div class="character-grid section">${recipes.length?recipes.map(recipe=>{const cfg=recipeConfig(recipe);const out=recipeOutput(recipe);const mats=recipeMaterials(recipe);const required=recipeRequiredSkill(recipe);const skillLocked=cfg.access==='skill'&&!characterOwnsTemplateSkill(character,cfg.required_skill_template_id);const gameLocked=cfg.currency_type==='game'&&!character.game_coin_unlocked;const materialMissing=mats.some(m=>{const have=inventory.filter(i=>i.name.toLocaleLowerCase()===String(m.name||'').toLocaleLowerCase()&&(!m.category||String(i.category||'').toLocaleLowerCase()===String(m.category||'').toLocaleLowerCase())).reduce((sum,i)=>sum+(Number(i.quantity)||0),0);return have<Math.max(1,Number(m.quantity)||1)});const cost=Math.max(0,Number(cfg.currency_cost)||0);const coinMissing=cfg.currency_type==='weird'?(Number(character.weird_coins)||0)<cost:cfg.currency_type==='game'?(Number(character.game_coins)||0)<cost:false;const inventoryFull=out.type==='item'&&!inventory.some(i=>i.name.toLocaleLowerCase()===String(out.name||recipe.name||'').toLocaleLowerCase())&&inventory.length>=inventorySlotLimitUI(character);const locked=skillLocked||gameLocked||materialMissing||coinMissing||inventoryFull;return `<article class="character-card"><div class="character-card-head"><div><div class="character-name">${esc(recipe.name)} <span class="badge">${esc(recipe.rank||'G')}級</span></div><div class="character-user">成品：${esc(out.name||recipe.name)} × ${Math.max(1,Number(out.quantity)||1)}</div></div><span class="badge">${out.type==='weapon'?'武器':out.type==='equipment'?'裝備':out.type==='special_currency'?'特殊貨幣':'道具'}</span></div><div class="character-details"><div><span class="muted">材料：</span>${mats.length?mats.map(m=>`${esc(m.name)}${m.category?`（${esc(m.category)}）`:''} × ${Math.max(1,Number(m.quantity)||1)}`).join('、'):'無'}</div><div><span class="muted">解鎖：</span>${cfg.access==='skill'?(required?esc(required.name):'需要製作技能'):'所有人'}</div><div><span class="muted">成本：</span>${cfg.currency_type==='game'?`遊戲幣 ${cost}`:cfg.currency_type==='weird'?`詭幣 ${cost}`:'無'}</div><div><span class="muted">合成：</span>${esc(cfg.craft_category||'一般')} · 基礎 ${recipeSuccessRateFor(character,recipe).base}%${recipeSuccessRateFor(character,recipe).bonus?` + 技能 ${recipeSuccessRateFor(character,recipe).bonus}%`:''} = <b>${recipeSuccessRateFor(character,recipe).total}%</b></div>${recipe.description?`<div>${esc(recipe.description)}</div>`:''}${skillLocked?'<div class="danger-text">缺少必要製作技能</div>':''}${gameLocked?'<div class="danger-text">遊戲幣尚未解鎖</div>':''}${materialMissing?'<div class="danger-text">材料不足</div>':''}${coinMissing?'<div class="danger-text">貨幣不足</div>':''}${inventoryFull?'<div class="danger-text">物品欄已滿</div>':''}</div><div class="character-actions"><button class="btn craft-recipe" data-id="${recipe.id}" ${locked?'disabled':''}>${locked?'目前無法合成':'合成'}</button></div></article>`}).join(''):'<div class="muted">DM 還沒有建立任何配方。</div>'}</div></div>`;
+    <div class="card pad section"><h3>可用配方</h3><div class="character-grid section">${recipes.length?recipes.map(recipe=>{const cfg=recipeConfig(recipe);const out=recipeOutput(recipe);const mats=recipeMaterials(recipe);const required=recipeRequiredSkill(recipe);const skillLocked=cfg.access==='skill'&&!characterOwnsTemplateSkill(character,cfg.required_skill_template_id);const craftState=recipeCraftSkillState(character,recipe);const craftSkillLocked=Boolean(craftState.kind&&!craftState.skill);const craftRankLocked=Boolean(craftState.skill&&craftState.locked);const gameLocked=cfg.currency_type==='game'&&!character.game_coin_unlocked;const materialMissing=mats.some(m=>{const have=inventory.filter(i=>i.name.toLocaleLowerCase()===String(m.name||'').toLocaleLowerCase()&&(!m.category||String(i.category||'').toLocaleLowerCase()===String(m.category||'').toLocaleLowerCase())).reduce((sum,i)=>sum+(Number(i.quantity)||0),0);return have<Math.max(1,Number(m.quantity)||1)});const cost=Math.max(0,Number(cfg.currency_cost)||0);const coinMissing=cfg.currency_type==='weird'?(Number(character.weird_coins)||0)<cost:cfg.currency_type==='game'?(Number(character.game_coins)||0)<cost:false;const inventoryFull=out.type==='item'&&!inventory.some(i=>i.name.toLocaleLowerCase()===String(out.name||recipe.name||'').toLocaleLowerCase())&&inventory.length>=inventorySlotLimitUI(character);const locked=skillLocked||craftSkillLocked||craftRankLocked||gameLocked||materialMissing||coinMissing||inventoryFull;return `<article class="character-card"><div class="character-card-head"><div><div class="character-name">${esc(recipe.name)} <span class="badge">${esc(recipe.rank||'G')}級</span></div><div class="character-user">成品：${esc(out.name||recipe.name)} × ${Math.max(1,Number(out.quantity)||1)}</div></div><span class="badge">${out.type==='weapon'?'武器':out.type==='equipment'?'裝備':out.type==='special_currency'?'特殊貨幣':'道具'}</span></div><div class="character-details"><div><span class="muted">材料：</span>${mats.length?mats.map(m=>`${esc(m.name)}${m.category?`（${esc(m.category)}）`:''} × ${Math.max(1,Number(m.quantity)||1)}`).join('、'):'無'}</div><div><span class="muted">解鎖：</span>${cfg.access==='skill'?(required?esc(required.name):'需要製作技能'):'所有人'}</div><div><span class="muted">成本：</span>${cfg.currency_type==='game'?`遊戲幣 ${cost}`:cfg.currency_type==='weird'?`詭幣 ${cost}`:'無'}</div><div><span class="muted">合成：</span>${esc(cfg.craft_category||'一般')} · 基礎 ${recipeSuccessRateFor(character,recipe).base}%${recipeSuccessRateFor(character,recipe).bonus?` + 技能 ${recipeSuccessRateFor(character,recipe).bonus}%`:''} = <b>${recipeSuccessRateFor(character,recipe).total}%</b></div>${recipe.description?`<div>${esc(recipe.description)}</div>`:''}${skillLocked?'<div class="danger-text">缺少配方指定技能</div>':''}${craftSkillLocked?'<div class="danger-text">必須先學會'+(craftState.kind==='sigil'?'製符':'煉丹')+'技能</div>':''}${craftRankLocked?'<div class="danger-text">目前可製作品階上限為'+esc(craftState.maxRank)+'，無法製作'+esc(craftState.rank)+'級</div>':''}${gameLocked?'<div class="danger-text">遊戲幣尚未解鎖</div>':''}${materialMissing?'<div class="danger-text">材料不足</div>':''}${coinMissing?'<div class="danger-text">貨幣不足</div>':''}${inventoryFull?'<div class="danger-text">物品欄已滿</div>':''}</div><div class="character-actions"><button class="btn craft-recipe" data-id="${recipe.id}" ${locked?'disabled':''}>${locked?'目前無法合成':'合成'}</button></div></article>`}).join(''):'<div class="muted">DM 還沒有建立任何配方。</div>'}</div></div>`;
 }
 
 // [前端功能備註｜擲骰] diceHTML：負責產生／更新畫面。修改 UI 時可直接搜尋此函式名稱。
@@ -11482,6 +11505,8 @@ function bindView(){
                 data:{
                   tree_group:$('#stTreeGroup').value,tree_order:Number($('#stTreeOrder').value)||0,prerequisite_skill_ids:$('#stPrerequisites').value.split(/[,，]/).map(x=>Number(x.trim())).filter(Boolean),tags:$('#stTags').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean),learn_cost:{mode:$('#stLearnMode').value,item_name:$('#stLearnItem').value,item_quantity:Number($('#stLearnItemQty').value)||1,weird_coins:Number($('#stLearnWeird').value)||0,game_coins:Number($('#stLearnGame').value)||0,skill_points:Number($('#stLearnSkillPoints').value)||0,required_profession_id:Number($('#stLearnProfession').value)||0,required_profession_rank:$('#stLearnRank').value,required_profession_level:Number($('#stLearnLevel').value)||1},skill_tree:{profession_id:Number($('#stTreeProfession').value)||0,requirement_logic:$('#stTreeLogic').value,skill_book_name:$('#stTreeBook').value.trim(),skill_book_quantity:Math.max(1,Number($('#stTreeBookQty').value)||1),consume_skill_book:$('#stTreeConsumeBook').checked},
                   craft_tag:$('#stCraft').checked,
+                  craft_max_rank:$('#stCraftMaxRank').value||'G',
+                  craft_success_by_rank:{G:100,F:50,E:20},
                   craft_success_category:$('#stCraftSuccessCategory').value,
                   craft_success_bonus:Number($('#stCraftSuccessBonus').value)||0,
                   unlock_game_coin:$('#stUnlockGameCoin').checked,
@@ -11521,6 +11546,7 @@ function bindView(){
                   reaction_damage_multiplier:Math.max(0,Number($('#stReactionDamage').value)||1),
                   reaction_guard_percent:Math.max(0,Number($('#stReactionGuard').value)||30),
                   element_affinity_modifiers:collectElementModifierInputs('stAffinityModifiers'),
+                  element_affinity_percent_modifiers:collectElementModifierInputs('stAffinityPercentModifiers'),
                   element_storage_cap_bonus:collectElementModifierInputs('stElementStorageCap'),
                   element_storage_generation:collectElementModifierInputs('stElementGeneration'),
                   state_mechanic:collectStateMechanic('st'),
