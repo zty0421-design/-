@@ -3118,6 +3118,39 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
     }, "購買失敗");
   });
 
+  // Reset profession skill-tree skills in exchange for the DM-configured special item.
+  reg1("/api/character/professions/{1}/skill-tree/reset", drogon::Post,
+       [service](const Request& req, Callback& cb, const std::string& professionIdText) {
+    runHandler(cb, [&] {
+      const auto user = requireUser(service, req);
+      const auto professionId = positiveId(professionIdText, "職業 ID 無效");
+      const auto pRows = service->database()->execSqlSync("SELECT config::text AS config_text FROM profession_templates WHERE id=$1", professionId);
+      if (pRows.empty()) throw ApiError(drogon::k404NotFound, "找不到職業");
+      const auto config = parseJson(pRows[0]["config_text"].as<std::string>(), Json::Value{Json::objectValue});
+      const auto itemName = trimmed(stringValue(config["skill_reset_item_name"]));
+      const auto itemQty = std::max<std::int64_t>(1, intValue(config["skill_reset_item_quantity"], 1));
+      if (itemName.empty()) throw ApiError(drogon::k400BadRequest, "DM 尚未設定技能重置道具");
+      auto character = characterRaw(service->database(), user.id);
+      auto inventory = inventoryOf(character);
+      if (inventoryQuantity(inventory, itemName) < itemQty) throw ApiError(drogon::k400BadRequest, "需要「" + itemName + "」×" + std::to_string(itemQty));
+      inventory = changeInventory(std::move(inventory), itemName, -itemQty);
+      auto skills = character["skills"].isArray() ? character["skills"] : Json::Value{Json::arrayValue};
+      Json::Value kept{Json::arrayValue};
+      std::int64_t refund = 0;
+      std::int64_t removedCount = 0;
+      for (const auto& skill : skills) {
+        if (stringValue(skill["learned_via"]) == "skill_tree" && intValue(skill["learned_profession_id"]) == professionId) {
+          ++removedCount;
+          refund += std::max<std::int64_t>(0, intValue(skill["learned_skill_point_cost"]));
+        } else kept.append(skill);
+      }
+      auto points = std::max<std::int64_t>(0, intValue(character["skill_points"])) + refund;
+      if (removedCount == 0) throw ApiError(drogon::k400BadRequest, "這個職業技能樹沒有可重置的已學技能");
+      service->database()->execSqlSync("UPDATE character_cards SET skills=$1::jsonb,skill_points=$2,inventory=$3::jsonb,updated_at=CURRENT_TIMESTAMP WHERE user_id=$4", compactJson(kept), points, compactJson(inventory), user.id);
+      Json::Value out; out["ok"] = true; out["refunded_skill_points"] = Json::Int64(refund); out["character"] = characterRaw(service->database(), user.id); reply(cb, std::move(out));
+    }, "重置技能樹失敗");
+  });
+
   // Learn/remove/use character skills.
   // [功能備註｜技能｜POST /api/character/skills/from-template]
   // 用途：建立/執行技能相關資料或操作。 修改時請同步檢查前端呼叫、權限驗證與相關資料表。
@@ -3138,20 +3171,54 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
         if (intValue(skill["template_id"]) == templateId)
           throw ApiError(drogon::k409Conflict, "你已經擁有這個技能");
       }
-      // [功能備註｜技能樹] 學習前由 C++ 驗證 prerequisite_skill_ids，避免只靠前端限制。
-      if (templ["prerequisite_skill_ids"].isArray()) {
-        for (const auto& required : templ["prerequisite_skill_ids"]) {
+      const auto data = templ["data"].isObject() ? templ["data"] : Json::Value{Json::objectValue};
+      const auto learnCost = data["learn_cost"].isObject() ? data["learn_cost"] : templ["learn_cost"];
+      const auto tree = data["skill_tree"].isObject() ? data["skill_tree"] : Json::Value{Json::objectValue};
+      const auto professionId = std::max<std::int64_t>(0, intValue(tree["profession_id"], intValue(learnCost["required_profession_id"])));
+      const auto professionProgress = character["profession_progress"].isObject() ? character["profession_progress"] : Json::Value{Json::objectValue};
+      Json::Value professionEntry{Json::objectValue};
+      if (professionId > 0) {
+        const auto key = std::to_string(professionId);
+        if (!professionProgress.isMember(key)) throw ApiError(drogon::k403Forbidden, "尚未取得此技能樹所屬職業");
+        professionEntry = professionProgress[key];
+      }
+      std::vector<bool> gates;
+      if (data["prerequisite_skill_ids"].isArray()) {
+        for (const auto& required : data["prerequisite_skill_ids"]) {
           const auto requiredId = intValue(required);
           if (requiredId <= 0) continue;
           bool owned = false;
           for (const auto& skill : skills) if (intValue(skill["template_id"]) == requiredId) { owned = true; break; }
-          if (!owned) throw ApiError(drogon::k403Forbidden, "尚未取得技能樹前置技能 #" + std::to_string(requiredId));
+          gates.push_back(owned);
         }
       }
-      const auto data = templ["data"].isObject() ? templ["data"] : Json::Value{Json::objectValue};
-      const auto cost = std::max<std::int64_t>(0, intValue(data["learn_skill_points"], intValue(data["skill_point_cost"], 1)));
+      const auto requiredRank = stringValue(learnCost["required_profession_rank"]);
+      if (!requiredRank.empty() && professionId > 0 && requiredRank != "G") {
+        const std::vector<std::string> ranks{"G","F","E","D","C","B","A","S","SS","SSS"};
+        const auto have = stringValue(professionEntry["rank"], "G");
+        const auto haveIt = std::find(ranks.begin(), ranks.end(), have);
+        const auto needIt = std::find(ranks.begin(), ranks.end(), requiredRank);
+        gates.push_back(haveIt != ranks.end() && needIt != ranks.end() && (haveIt-ranks.begin()) >= (needIt-ranks.begin()));
+      }
+      const auto requiredLevel = std::max<std::int64_t>(1, intValue(learnCost["required_profession_level"], 1));
+      if (requiredLevel > 1 && professionId > 0) gates.push_back(intValue(professionEntry["level"], 1) >= requiredLevel);
+      const auto bookName = trimmed(stringValue(tree["skill_book_name"]));
+      const auto bookQuantity = std::max<std::int64_t>(1, intValue(tree["skill_book_quantity"], 1));
+      const auto inventory = inventoryOf(character);
+      if (!bookName.empty()) gates.push_back(inventoryQuantity(inventory, bookName) >= bookQuantity);
+      if (!gates.empty()) {
+        const auto logic = stringValue(tree["requirement_logic"], "AND");
+        const bool allowed = logic == "OR"
+            ? std::any_of(gates.begin(), gates.end(), [](bool value) { return value; })
+            : std::all_of(gates.begin(), gates.end(), [](bool value) { return value; });
+        if (!allowed) throw ApiError(drogon::k403Forbidden, "技能樹解鎖條件尚未達成");
+      }
+      const auto cost = std::max<std::int64_t>(0, intValue(learnCost["skill_points"], intValue(data["learn_skill_points"], intValue(data["skill_point_cost"], 1))));
       auto points = std::max<std::int64_t>(0, intValue(character["skill_points"]));
       if (points < cost) throw ApiError(drogon::k400BadRequest, "技能點不足");
+      auto updatedInventory = inventory;
+      const bool consumeBook = !bookName.empty() && inventoryQuantity(inventory, bookName) >= bookQuantity && tree.get("consume_skill_book", true).asBool();
+      if (consumeBook) updatedInventory = changeInventory(std::move(updatedInventory), bookName, -bookQuantity);
       Json::Value skill;
       skill["id"] = "tpl_" + std::to_string(templateId);
       skill["template_id"] = Json::Int64(templateId);
@@ -3167,6 +3234,9 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
       skill["summon_tag"] = templ["summon_tag"];
       skill["resources"] = templ["resources"];
       skill["data"] = templ["data"];
+      skill["learned_via"] = "skill_tree";
+      skill["learned_profession_id"] = Json::Int64(professionId);
+      skill["learned_skill_point_cost"] = Json::Int64(cost);
       skills.append(skill);
       auto classResources = character["class_resources"].isObject()
                                 ? character["class_resources"]
@@ -3180,8 +3250,8 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
         ensureSequenceMechanicResource(classResources, skill, sequenceMechanic);
       }
       service->database()->execSqlSync(
-          "UPDATE character_cards SET skills=$1::jsonb,skill_points=$2,class_resources=$3::jsonb,updated_at=CURRENT_TIMESTAMP WHERE user_id=$4",
-          compactJson(skills), points - cost, compactJson(classResources), user.id);
+          "UPDATE character_cards SET skills=$1::jsonb,skill_points=$2,class_resources=$3::jsonb,inventory=$4::jsonb,updated_at=CURRENT_TIMESTAMP WHERE user_id=$5",
+          compactJson(skills), points - cost, compactJson(classResources), compactJson(updatedInventory), user.id);
       Json::Value out;
       out["ok"] = true;
       out["skill"] = skill;
@@ -3805,6 +3875,9 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
       requireUser(service, req, true);
       const auto userId = positiveId(userIdText, "玩家 ID 無效");
       const auto professionId = positiveId(professionIdText, "職業 ID 無效");
+      std::int64_t skillPointsAwarded = 2;
+      const auto professionRows = service->database()->execSqlSync("SELECT config::text AS config_text FROM profession_templates WHERE id=$1", professionId);
+      if (!professionRows.empty() && !professionRows[0]["config_text"].isNull()) { const auto config = parseJson(professionRows[0]["config_text"].as<std::string>(), Json::Value{Json::objectValue}); skillPointsAwarded = std::max<std::int64_t>(0, intValue(config["skill_points_per_level"], 2)); }
       auto character = characterRaw(service->database(), userId);
       auto progress = character["profession_progress"].isObject() ? character["profession_progress"] : Json::Value{Json::objectValue};
       auto key = std::to_string(professionId);
@@ -3812,12 +3885,14 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
       auto entry = progress[key].isObject() ? progress[key] : Json::Value{Json::objectValue};
       entry["level"] = Json::Int64(std::max<std::int64_t>(1, intValue(entry["level"], 1) + 1));
       progress[key] = entry;
+      const auto currentSkillPoints = std::max<std::int64_t>(0, intValue(character["skill_points"]));
       service->database()->execSqlSync(
-          "UPDATE character_cards SET profession_progress=$1::jsonb,updated_at=CURRENT_TIMESTAMP WHERE user_id=$2",
-          compactJson(progress), userId);
+          "UPDATE character_cards SET profession_progress=$1::jsonb,skill_points=$2,updated_at=CURRENT_TIMESTAMP WHERE user_id=$3",
+          compactJson(progress), currentSkillPoints + skillPointsAwarded, userId);
       Json::Value out;
       out["ok"] = true;
       out["profession"] = entry;
+      out["skill_points_awarded"] = Json::Int64(skillPointsAwarded);
       out["character"] = characterRaw(service->database(), userId);
       reply(cb, std::move(out));
     }, "職業升級失敗");
