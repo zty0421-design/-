@@ -2877,15 +2877,16 @@ Json::Value CoreService::characterByUser(std::int64_t userId) const {
   character["attribute_remaining_expected"] = Json::Int64(std::max<std::int64_t>(0, attributeBudget - attributeSpent));
   character["ascension_ready"] = characterTier < 10 && characterLevel >= 4;
   character["ascension_ritual_type"] = characterTier <= 0 ? "無" : ((characterTier + 1) >= 9 ? "登神儀式" : "登階儀式");
-  Json::Value affinity;
-  affinity["光"] = character.get("affinity_light", 0);
-  affinity["暗"] = character.get("affinity_dark", 0);
-  affinity["金"] = character.get("affinity_metal", 0);
-  affinity["木"] = character.get("affinity_wood", 0);
-  affinity["水"] = character.get("affinity_water", 0);
-  affinity["火"] = character.get("affinity_fire", 0);
-  affinity["土"] = character.get("affinity_earth", 0);
-  character["element_affinity"] = std::move(affinity);
+  const std::array<const char*,7> affinityElements={"暗","光","金","木","水","火","土"};
+  Json::Value affinityBase{Json::objectValue}, skillAffinityFlat{Json::objectValue}, skillAffinityPercent{Json::objectValue}, affinity{Json::objectValue};
+  const std::array<std::int64_t,7> baseAffinityValues={integerValue(character["affinity_dark"]),integerValue(character["affinity_light"]),integerValue(character["affinity_metal"]),integerValue(character["affinity_wood"]),integerValue(character["affinity_water"]),integerValue(character["affinity_fire"]),integerValue(character["affinity_earth"])};
+  for(std::size_t i=0;i<affinityElements.size();++i){const auto* element=affinityElements[i];affinityBase[element]=Json::Int64(baseAffinityValues[i]);skillAffinityFlat[element]=Json::Int64(0);skillAffinityPercent[element]=Json::Int64(0);}
+  if(character["skills"].isArray()){for(const auto&skill:character["skills"]){if(!skill.isObject())continue;const auto data=skill["data"].isObject()?skill["data"]:Json::Value{Json::objectValue};for(const auto*element:affinityElements){skillAffinityFlat[element]=Json::Int64(integerValue(skillAffinityFlat[element])+integerValue(data["element_affinity_modifiers"][element]));skillAffinityPercent[element]=Json::Int64(integerValue(skillAffinityPercent[element])+integerValue(data["element_affinity_percent_modifiers"][element]));}}}
+  for(const auto*element:affinityElements){const auto base=integerValue(affinityBase[element]);const auto flat=integerValue(skillAffinityFlat[element]);const auto percent=std::clamp<std::int64_t>(integerValue(skillAffinityPercent[element]),-100,10000);const auto modified=static_cast<std::int64_t>(std::llround(static_cast<double>(base+flat)*(100.0+static_cast<double>(percent))/100.0));affinity[element]=Json::Int64(std::max<std::int64_t>(0,modified));}
+  character["base_element_affinity"]=std::move(affinityBase);
+  character["skill_element_affinity_modifiers"]=std::move(skillAffinityFlat);
+  character["skill_element_affinity_percent_modifiers"]=std::move(skillAffinityPercent);
+  character["element_affinity"]=std::move(affinity);
 
   // [功能備註｜65-cpp.26 玩家元素抗性／弱點]
   // 抗性與弱點為百分比資料；兩者分開保存，便於 DM 做「火抗 30% / 暗弱 50%」等設定。
