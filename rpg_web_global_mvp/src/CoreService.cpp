@@ -3106,7 +3106,7 @@ void CoreService::addEvent(std::int64_t roomId, std::int64_t userId,
                            const std::string& type,
                            const Json::Value& payload) const {
   database_->execSqlSync(
-      "INSERT INTO events(room_id,user_id,type,payload) VALUES($1,NULLIF($2,0),$3,$4::jsonb)",
+      "INSERT INTO events(room_id,user_id,type,payload) VALUES($1,NULLIF($2::bigint,0::bigint),$3,$4::jsonb)",
       roomId, userId, type, compactJson(payload));
 }
 
