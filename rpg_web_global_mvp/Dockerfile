@@ -22,8 +22,8 @@ COPY . .
 RUN set -eux; \
     if [ ! -f src/main.cpp ]; then \
       mkdir -p src include/trpg tests db public/icons; \
-      cp main.cpp Config.cpp Security.cpp CoreService.cpp LegacyCompat.cpp RoomSocket.cpp WorldSystems.cpp RuleEngine.cpp RuleCombatBridge.cpp GearAffixSystem.cpp src/; \
-      cp Config.h CoreService.h LegacyCompat.h LegacyRouteManifest.h RoomSocket.h Security.h WorldSystems.h RuleEngine.h RuleCombatBridge.h GearAffixSystem.h include/trpg/; \
+      cp main.cpp Config.cpp Security.cpp CoreService.cpp LegacyCompat.cpp RoomSocket.cpp WorldSystems.cpp RuleEngine.cpp RuleCombatBridge.cpp GearAffixSystem.cpp EventSkillSystem.cpp src/; \
+      cp Config.h CoreService.h LegacyCompat.h LegacyRouteManifest.h RoomSocket.h Security.h WorldSystems.h RuleEngine.h RuleCombatBridge.h GearAffixSystem.h EventSkillSystem.h include/trpg/; \
       cp security_test.cpp tests/; \
       cp legacy_v39_migrations.sql db/; \
       cp index.html native-socket.js sw.js manifest.webmanifest public/; \
