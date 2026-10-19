@@ -4325,8 +4325,9 @@ void CoreService::registerRoutes() {
         runHandler(callback, [&] {
           requireCurrentUser(self, request, true);
           const auto rows = self->database()->execSqlSync(
-              "SELECT jsonb_build_object('id',id,'username',username,'is_admin',is_admin,"
-              "'is_dm_assistant',is_dm_assistant,'created_at',created_at)::text AS json_text FROM users ORDER BY id");
+              "SELECT jsonb_build_object('id',u.id,'username',u.username,'is_admin',u.is_admin,"
+              "'is_dm_assistant',u.is_dm_assistant,'created_at',u.created_at,'character_name',c.name)::text AS json_text "
+              "FROM users u LEFT JOIN character_cards c ON c.user_id=u.id ORDER BY u.id");
           Json::Value response;
           response["users"] = Json::arrayValue;
           for (const auto& row : rows)
