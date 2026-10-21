@@ -4689,7 +4689,7 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
           if (result != drogon::ReqResult::Ok || !response) throw ApiError(drogon::k502BadGateway, "無法連線到 OpenAI API");
           const auto statusCode = static_cast<int>(response->getStatusCode());
           if (statusCode < 200 || statusCode >= 300) throw ApiError(drogon::k502BadGateway, "OpenAI API 回應失敗");
-          const auto* json = response->getJsonObject();
+          const auto json = response->getJsonObject();
           if (!json) throw ApiError(drogon::k502BadGateway, "OpenAI API 回傳格式無效");
           std::string text;
           const auto output = (*json)["output"];
