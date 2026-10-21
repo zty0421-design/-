@@ -1006,7 +1006,7 @@ CombatTarget loadCombatTarget(const std::shared_ptr<CoreService>& service,
     const auto rows = service->database()->execSqlSync(R"SQL(
       SELECT jsonb_build_object(
         'id',rn.npc_template_id,'name',nt.name,'status',rn.status,
-        'combat_side',rn.combat_side,'current_hp',rn.current_hp,'max_hp',rn.max_hp,
+        'combat_side',rn.combat_side,'control_mode',rn.control_mode,'current_hp',rn.current_hp,'max_hp',rn.max_hp,
         'current_spirit',rn.current_spirit,'current_fifth',rn.current_fifth,
         'attributes',nt.attributes,'config',nt.config,'ai_behavior',nt.ai_behavior,'element_affinity',nt.element_affinity,'element_resistance',nt.element_resistance,'element_weakness',nt.element_weakness
       )::text AS json_text
@@ -2507,6 +2507,7 @@ void CoreService::initializeDatabase() {
         npc_template_id BIGINT NOT NULL REFERENCES npc_templates(id) ON DELETE CASCADE,
         status VARCHAR(30) NOT NULL DEFAULT 'active',
         state JSONB NOT NULL DEFAULT '{}'::jsonb,
+        map_node_id BIGINT REFERENCES room_map_nodes(id) ON DELETE SET NULL,
         combat_side VARCHAR(20) NOT NULL DEFAULT 'neutral',
         current_hp BIGINT NOT NULL DEFAULT 100,
         max_hp BIGINT NOT NULL DEFAULT 100,
@@ -2515,6 +2516,7 @@ void CoreService::initializeDatabase() {
         current_fifth BIGINT NOT NULL DEFAULT 0,
         max_fifth BIGINT NOT NULL DEFAULT 0,
         turn_actions_remaining BIGINT NOT NULL DEFAULT 0,
+        control_mode VARCHAR(20) NOT NULL DEFAULT 'manual',
         skill_charge_state JSONB NOT NULL DEFAULT '{}'::jsonb,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2552,6 +2554,8 @@ void CoreService::initializeDatabase() {
       "ALTER TABLE room_npcs ADD COLUMN IF NOT EXISTS current_hp BIGINT NOT NULL DEFAULT 100",
       "ALTER TABLE room_npcs ADD COLUMN IF NOT EXISTS max_hp BIGINT NOT NULL DEFAULT 100",
       "ALTER TABLE room_npcs ADD COLUMN IF NOT EXISTS turn_actions_remaining BIGINT NOT NULL DEFAULT 0",
+      "ALTER TABLE room_npcs ADD COLUMN IF NOT EXISTS map_node_id BIGINT REFERENCES room_map_nodes(id) ON DELETE SET NULL",
+      "ALTER TABLE room_npcs ADD COLUMN IF NOT EXISTS control_mode VARCHAR(20) NOT NULL DEFAULT 'manual'",
       "ALTER TABLE room_npcs ADD COLUMN IF NOT EXISTS skill_charge_state JSONB NOT NULL DEFAULT '{}'::jsonb",
       "CREATE INDEX IF NOT EXISTS idx_room_monsters_room_status ON room_monsters(room_id,status)",
       "CREATE INDEX IF NOT EXISTS idx_room_npcs_room_side ON room_npcs(room_id,combat_side,status)",
@@ -3035,6 +3039,7 @@ Json::Value CoreService::roomSnapshot(std::int64_t roomId) const {
       'merchant_title',COALESCE(to_jsonb(nt)->>'merchant_title',''),
       'status',rn.status,'combat_side',rn.combat_side,
       'current_hp',rn.current_hp,'max_hp',rn.max_hp,
+      'control_mode',rn.control_mode,
       'turn_actions_remaining',rn.turn_actions_remaining,
       'skill_charge_state',rn.skill_charge_state,'attributes',nt.attributes,
       'config',nt.config
@@ -4167,6 +4172,54 @@ void CoreService::registerRoutes() {
       },
       {drogon::Post});
 
+  // [NPC 戰鬥控制] DM 手動選擇目標，執行房間 NPC 的基本攻擊。
+  drogon::app().registerHandler(
+      "/api/admin/rooms/{1}/combat/npc-act",
+      [self](const drogon::HttpRequestPtr& request, Callback&& callback,
+             const std::string& roomIdText) {
+        runHandler(callback, [&] {
+          const auto user = requireCurrentUser(self, request, true);
+          const auto roomId = parseRoomId(roomIdText);
+          const auto& body = requireBody(request);
+          const auto state = currentCombatState(self, roomId);
+          if (!state.active || state.actor.isNull() || stringValue(state.actor["type"]) != "npc")
+            throw ApiError(drogon::k400BadRequest, "目前不是 NPC 的戰鬥回合");
+          const auto actorId = integerValue(state.actor["id"]);
+          const auto control = self->database()->execSqlSync(
+              "SELECT control_mode FROM room_npcs WHERE room_id=$1 AND npc_template_id=$2 AND status='active'",
+              roomId, actorId);
+          if (control.empty()) throw ApiError(drogon::k404NotFound, "找不到可行動的 NPC");
+          if (control[0]["control_mode"].as<std::string>() != "manual")
+            throw ApiError(drogon::k400BadRequest, "此 NPC 目前是自動行動模式");
+          const auto targetType = stringValue(body["target_type"]);
+          const auto targetId = integerValue(body["target_id"]);
+          if (targetType != "monster" && targetType != "npc")
+            throw ApiError(drogon::k400BadRequest, "請選擇怪物或敵方 NPC");
+          const auto attacker = loadCombatTarget(self, roomId, "npc", actorId);
+          const auto target = loadCombatTarget(self, roomId, targetType, targetId);
+          if (target.side == attacker.side || nonNegative(target.entity["current_hp"]) <= 0)
+            throw ApiError(drogon::k400BadRequest, "只能攻擊仍可戰鬥的敵方目標");
+          auto combat = resolveBasicCombatAttack(self, roomId, "npc", actorId, target);
+          self->addEvent(roomId, user.id, "combat_attack", combat["event_payload"]);
+          Json::Value ruleEvent = combat; ruleEvent["source"] = "dm_npc_basic_attack";
+          try { combat["event_skill_result"] = dispatchEventSkillEvent(self, roomId, "npc", actorId, "COMBAT_ATTACK_RESOLVED", ruleEvent); }
+          catch (const std::exception& error) { LOG_WARN << "NPC manual attack event skill degraded: " << error.what(); }
+          evaluateRuleEvent(self, roomId, user.id, "COMBAT_ATTACK_RESOLVED", ruleEvent, false);
+          if (combat["damage_change"].isObject() && combat["damage_change"].get("downed", false).asBool()) {
+            try { dispatchEventSkillEvent(self, roomId, "npc", actorId, "COMBAT_ENTITY_DEFEATED", ruleEvent); }
+            catch (const std::exception& error) { LOG_WARN << "NPC manual defeat event skill degraded: " << error.what(); }
+            evaluateRuleEvent(self, roomId, user.id, "COMBAT_ENTITY_DEFEATED", ruleEvent, false);
+          }
+          evaluateRuleCombatVictory(self, roomId, user.id, "COMBAT_ATTACK_RESOLVED");
+          combat.removeMember("event_payload");
+          advanceCombatAction(self, roomId, "npc", actorId, user.id, "DM 手動攻擊");
+          RoomSocket::broadcastSnapshotForRoom(roomId);
+          Json::Value response; response["ok"] = true; response["combat"] = combat;
+          response["room"] = self->roomSnapshot(roomId); reply(callback, std::move(response));
+        }, "NPC 手動行動失敗");
+      },
+      {drogon::Post});
+
   // [功能備註｜戰鬥／回合｜POST /api/admin/rooms/{1}/combat/ai-act]
   // 用途：執行怪物／NPC 的 AI 戰鬥行動。 修改時請同步檢查前端呼叫、權限驗證與相關資料表。
   drogon::app().registerHandler(
@@ -4183,6 +4236,13 @@ void CoreService::registerRoutes() {
           const auto actorId = integerValue(state.actor["id"]);
           if (actorType != "monster" && actorType != "npc") {
             throw ApiError(drogon::k400BadRequest, "目前不是 AI 單位行動");
+          }
+          if (actorType == "npc") {
+            const auto control = self->database()->execSqlSync(
+                "SELECT control_mode FROM room_npcs WHERE room_id=$1 AND npc_template_id=$2",
+                roomId, actorId);
+            if (control.empty() || control[0]["control_mode"].as<std::string>() != "auto")
+              throw ApiError(drogon::k400BadRequest, "此 NPC 目前是手動行動模式");
           }
           const auto attacker = loadCombatTarget(self, roomId, actorType, actorId);
           const auto candidates = combatTargetsAgainst(self, roomId, attacker.side);

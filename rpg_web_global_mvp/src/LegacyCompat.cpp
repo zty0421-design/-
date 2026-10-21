@@ -4,6 +4,7 @@
 #include "trpg/WorldSystems.h"
 #include "trpg/RuleEngine.h"
 #include "trpg/RuleCombatBridge.h"
+#include "trpg/RoomSocket.h"
 
 #include <drogon/drogon.h>
 #include <openssl/sha.h>
@@ -13,6 +14,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -4486,6 +4488,224 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
       if (rows.empty()) throw ApiError(drogon::k404NotFound, "找不到房間 NPC");
       Json::Value out; out["ok"] = true; out["room"] = service->roomSnapshot(roomId); reply(cb, std::move(out));
     }, "更新 NPC 陣營失敗");
+  });
+
+  // [NPC 戰鬥控制] 由 DM 在每個房間切換 NPC 的自動／手動行動。
+  reg2("/api/admin/rooms/{1}/npcs/{2}/control-mode", drogon::Patch,
+       [service](const Request& req, Callback& cb, const std::string& roomIdText, const std::string& templateIdText) {
+    runHandler(cb, [&] {
+      requireUser(service, req, true);
+      const auto roomId = positiveId(roomIdText, "房間 ID 無效");
+      const auto templateId = positiveId(templateIdText, "NPC 模板 ID 無效");
+      const auto body = bodyOrEmpty(req);
+      const auto mode = stringValue(body["mode"], "manual");
+      if (mode != "auto" && mode != "manual") throw ApiError(drogon::k400BadRequest, "控制模式必須是 auto 或 manual");
+      const auto rows = service->database()->execSqlSync(
+          "UPDATE room_npcs SET control_mode=$1,updated_at=CURRENT_TIMESTAMP WHERE room_id=$2 AND npc_template_id=$3 RETURNING npc_template_id",
+          mode, roomId, templateId);
+      if (rows.empty()) throw ApiError(drogon::k404NotFound, "找不到房間 NPC");
+      RoomSocket::broadcastSnapshotForRoom(roomId);
+      Json::Value out; out["ok"] = true; out["mode"] = mode; out["room"] = service->roomSnapshot(roomId); reply(cb, std::move(out));
+    }, "更新 NPC 控制模式失敗");
+  });
+
+  // DM 給房間 NPC 設定目前的行動大方向，細節由 NPC 自主補完。
+  reg2("/api/admin/rooms/{1}/npcs/{2}/directive", drogon::Patch,
+       [service](const Request& req, Callback& cb, const std::string& roomIdText, const std::string& templateIdText) {
+    runHandler(cb, [&] {
+      requireUser(service, req, true);
+      const auto roomId = positiveId(roomIdText, "房間 ID 無效");
+      const auto templateId = positiveId(templateIdText, "NPC 模板 ID 無效");
+      const auto body = bodyOrEmpty(req);
+      const auto directive = trimmed(stringValue(body["directive"]));
+      if (directive.size() > 1000) throw ApiError(drogon::k400BadRequest, "行動方向最多 1000 字");
+      const auto rows = service->database()->execSqlSync(
+          "UPDATE room_npcs SET state=jsonb_set(COALESCE(state,'{}'::jsonb),'{dm_directive}',to_jsonb($1::text),TRUE),updated_at=CURRENT_TIMESTAMP WHERE room_id=$2 AND npc_template_id=$3 RETURNING npc_template_id",
+          directive, roomId, templateId);
+      if (rows.empty()) throw ApiError(drogon::k404NotFound, "找不到房間 NPC");
+      RoomSocket::broadcastSnapshotForRoom(roomId);
+      Json::Value out; out["ok"] = true; out["directive"] = directive; out["room"] = service->roomSnapshot(roomId); reply(cb, std::move(out));
+    }, "更新 NPC 行動方向失敗");
+  });
+
+  // DM 可直接為房間 NPC 管理道具；NPC 贈送玩家時同步扣除雙方背包。
+  reg2("/api/admin/rooms/{1}/npcs/{2}/inventory", drogon::Post,
+       [service](const Request& req, Callback& cb, const std::string& roomIdText, const std::string& templateIdText) {
+    runHandler(cb, [&] {
+      requireUser(service, req, true);
+      const auto roomId = positiveId(roomIdText, "房間 ID 無效");
+      const auto npcId = positiveId(templateIdText, "NPC 模板 ID 無效");
+      const auto body = bodyOrEmpty(req);
+      const auto name = trimmed(stringValue(body["name"]));
+      const auto quantity = std::clamp<std::int64_t>(intValue(body["quantity"], 1), 1, 9999);
+      const auto category = stringValue(body["category"], "item");
+      const auto action = stringValue(body["action"], "add");
+      if (name.empty() || name.size() > 120) throw ApiError(drogon::k400BadRequest, "道具名稱必填且不得超過 120 字");
+      if (action != "add" && action != "remove") throw ApiError(drogon::k400BadRequest, "道具操作無效");
+      const auto rows = service->database()->execSqlSync("SELECT state::text AS state_text FROM room_npcs WHERE room_id=$1 AND npc_template_id=$2", roomId, npcId);
+      if (rows.empty()) throw ApiError(drogon::k404NotFound, "找不到房間 NPC");
+      auto roomState = parseJson(rows[0]["state_text"].as<std::string>());
+      if (!roomState.isObject()) roomState = Json::Value{Json::objectValue};
+      auto inventory = inventoryOf(roomState);
+      if (action == "remove" && inventoryQuantity(inventory, name, category) < quantity) throw ApiError(drogon::k400BadRequest, "NPC 背包中的道具數量不足");
+      inventory = changeInventory(std::move(inventory), name, action == "add" ? quantity : -quantity, category);
+      roomState["inventory"] = inventory;
+      service->database()->execSqlSync("UPDATE room_npcs SET state=$1::jsonb,updated_at=CURRENT_TIMESTAMP WHERE room_id=$2 AND npc_template_id=$3", compactJson(roomState), roomId, npcId);
+      RoomSocket::broadcastSnapshotForRoom(roomId);
+      Json::Value out; out["ok"] = true; out["inventory"] = inventory; reply(cb, std::move(out));
+    }, "更新 NPC 背包失敗");
+  });
+
+  reg2("/api/admin/rooms/{1}/npcs/{2}/gift", drogon::Post,
+       [service](const Request& req, Callback& cb, const std::string& roomIdText, const std::string& templateIdText) {
+    runHandler(cb, [&] {
+      const auto user = requireUser(service, req, true);
+      const auto roomId = positiveId(roomIdText, "房間 ID 無效");
+      const auto npcId = positiveId(templateIdText, "NPC 模板 ID 無效");
+      const auto body = bodyOrEmpty(req);
+      const auto recipient = positiveId(std::to_string(intValue(body["user_id"])), "玩家 ID 無效");
+      const auto name = trimmed(stringValue(body["name"]));
+      const auto quantity = std::clamp<std::int64_t>(intValue(body["quantity"], 1), 1, 9999);
+      const auto category = stringValue(body["category"], "item");
+      if (name.empty()) throw ApiError(drogon::k400BadRequest, "道具名稱必填");
+      const auto rows = service->database()->execSqlSync("SELECT state::text AS state_text FROM room_npcs WHERE room_id=$1 AND npc_template_id=$2", roomId, npcId);
+      if (rows.empty()) throw ApiError(drogon::k404NotFound, "找不到房間 NPC");
+      if (service->database()->execSqlSync("SELECT 1 FROM room_members WHERE room_id=$1 AND user_id=$2 AND role='player'", roomId, recipient).empty()) throw ApiError(drogon::k404NotFound, "找不到房間玩家");
+      auto roomState = parseJson(rows[0]["state_text"].as<std::string>());
+      if (!roomState.isObject()) roomState = Json::Value{Json::objectValue};
+      auto npcInventory = inventoryOf(roomState);
+      if (inventoryQuantity(npcInventory, name, category) < quantity) throw ApiError(drogon::k400BadRequest, "NPC 背包中的道具數量不足");
+      npcInventory = changeInventory(std::move(npcInventory), name, -quantity, category);
+      roomState["inventory"] = npcInventory;
+      auto character = characterRaw(service->database(), recipient);
+      auto playerInventory = inventoryOf(character);
+      playerInventory = changeInventory(std::move(playerInventory), name, quantity, category);
+      service->database()->execSqlSync("UPDATE room_npcs SET state=$1::jsonb,updated_at=CURRENT_TIMESTAMP WHERE room_id=$2 AND npc_template_id=$3", compactJson(roomState), roomId, npcId);
+      service->database()->execSqlSync("UPDATE character_cards SET inventory=$1::jsonb,updated_at=CURRENT_TIMESTAMP WHERE user_id=$2", compactJson(playerInventory), recipient);
+      Json::Value event; event["text"] = "NPC 贈送道具「" + name + "」×" + std::to_string(quantity); event["npc_template_id"] = Json::Int64(npcId); event["recipient_user_id"] = Json::Int64(recipient); service->addEvent(roomId, user.id, "system", event);
+      RoomSocket::broadcastSnapshotForRoom(roomId);
+      Json::Value out; out["ok"] = true; out["inventory"] = npcInventory; out["recipient_user_id"] = Json::Int64(recipient); reply(cb, std::move(out));
+    }, "NPC 贈送道具失敗");
+  });
+
+  // NPC 以自己的技能與背包材料製作配方成品。
+  reg2("/api/admin/rooms/{1}/npcs/{2}/craft", drogon::Post,
+       [service](const Request& req, Callback& cb, const std::string& roomIdText, const std::string& templateIdText) {
+    runHandler(cb, [&] {
+      requireUser(service, req, true);
+      const auto roomId = positiveId(roomIdText, "房間 ID 無效");
+      const auto npcId = positiveId(templateIdText, "NPC 模板 ID 無效");
+      const auto body = bodyOrEmpty(req);
+      const auto recipeId = positiveId(std::to_string(intValue(body["recipe_id"])), "配方 ID 無效");
+      const auto recipeRows = service->database()->execSqlSync("SELECT row_to_json(r)::text AS json_text FROM recipes r WHERE id=$1", recipeId);
+      if (recipeRows.empty()) throw ApiError(drogon::k404NotFound, "找不到配方");
+      const auto npcRows = service->database()->execSqlSync("SELECT rn.state::text AS state_text,nt.skills::text AS skills_text,nt.name FROM room_npcs rn JOIN npc_templates nt ON nt.id=rn.npc_template_id WHERE rn.room_id=$1 AND rn.npc_template_id=$2", roomId, npcId);
+      if (npcRows.empty()) throw ApiError(drogon::k404NotFound, "找不到房間 NPC");
+      const auto recipe = rowJson(recipeRows);
+      auto roomState = parseJson(npcRows[0]["state_text"].as<std::string>());
+      if (!roomState.isObject()) roomState = Json::Value{Json::objectValue};
+      auto inventory = inventoryOf(roomState);
+      const auto skills = parseJson(npcRows[0]["skills_text"].as<std::string>());
+      const auto materials = recipe["materials"].isArray() ? recipe["materials"] : Json::Value{Json::arrayValue};
+      for (const auto& material : materials) {
+        const auto name = trimmed(stringValue(material["name"]));
+        const auto category = trimmed(stringValue(material["category"]));
+        const auto qty = std::max<std::int64_t>(1, intValue(material.isMember("quantity") ? material["quantity"] : material["qty"], 1));
+        if (!name.empty() && inventoryQuantity(inventory, name, category) < qty) throw ApiError(drogon::k400BadRequest, "NPC 材料不足：" + name);
+      }
+      const auto config = recipe["config"].isObject() ? recipe["config"] : Json::Value{Json::objectValue};
+      const auto recipeCategory = stringValue(config["craft_category"]);
+      const auto recipeType = stringValue(recipe["recipe_type"]);
+      std::string requiredSkill = stringValue(config["required_skill"]);
+      if (requiredSkill.empty() && (recipeCategory.find("符") != std::string::npos || stringValue(recipe["output"]["category"]).find("符") != std::string::npos)) requiredSkill = "製符";
+      if (requiredSkill.empty() && (recipeCategory.find("丹") != std::string::npos || recipeType.find("丹") != std::string::npos || stringValue(recipe["output"]["category"]).find("丹") != std::string::npos)) requiredSkill = "煉丹";
+      if (!requiredSkill.empty()) {
+        bool known = false;
+        if (skills.isArray()) for (const auto& skill : skills) {
+          const auto name = skill.isString() ? skill.asString() : stringValue(skill["name"]);
+          const auto data = skill.isObject() && skill["data"].isObject() ? skill["data"] : Json::Value{Json::objectValue};
+          if (name == requiredSkill || stringValue(data["craft_kind"]) == (requiredSkill == "製符" ? "sigil" : "alchemy")) known = true;
+        }
+        if (!known) throw ApiError(drogon::k403Forbidden, "NPC 尚未學會「" + requiredSkill + "」技能");
+      }
+      const auto output = recipe["output"].isObject() ? recipe["output"] : Json::Value{Json::objectValue};
+      const auto outputName = trimmed(stringValue(output["name"], stringValue(recipe["name"], "未命名成品")));
+      if (outputName.empty() || stringValue(output["type"], "item") == "special_currency") throw ApiError(drogon::k400BadRequest, "NPC 製作目前只支援道具、裝備和武器成品");
+      const auto rate = std::clamp<std::int64_t>(intValue(config["success_rate"], 100), 0, 100);
+      const auto roll = randomInt(1, 100);
+      const bool success = roll <= rate;
+      const bool consume = success || !config.isMember("failure_consumes") || config["failure_consumes"].asBool();
+      if (consume) for (const auto& material : materials) {
+        const auto name = trimmed(stringValue(material["name"]));
+        const auto category = trimmed(stringValue(material["category"]));
+        const auto qty = std::max<std::int64_t>(1, intValue(material.isMember("quantity") ? material["quantity"] : material["qty"], 1));
+        if (!name.empty()) inventory = changeInventory(std::move(inventory), name, -qty, category);
+      }
+      if (success) inventory = changeInventory(std::move(inventory), outputName, std::max<std::int64_t>(1, intValue(output["quantity"], 1)), stringValue(output["category"], stringValue(output["type"], "item")), output);
+      roomState["inventory"] = inventory;
+      service->database()->execSqlSync("UPDATE room_npcs SET state=$1::jsonb,updated_at=CURRENT_TIMESTAMP WHERE room_id=$2 AND npc_template_id=$3", compactJson(roomState), roomId, npcId);
+      Json::Value event; event["text"] = "NPC「" + npcRows[0]["name"].as<std::string>() + "」嘗試製作「" + outputName + "」" + (success ? "，成功" : "，失敗"); event["recipe_id"] = Json::Int64(recipeId); event["npc_template_id"] = Json::Int64(npcId); service->addEvent(roomId, 0, "system", event);
+      RoomSocket::broadcastSnapshotForRoom(roomId);
+      Json::Value out; out["ok"] = true; out["success"] = success; out["roll"] = roll; out["success_rate"] = Json::Int64(rate); out["failure_consumed"] = !success && consume; out["inventory"] = inventory; reply(cb, std::move(out));
+    }, "NPC 製作失敗");
+  });
+
+  // DM 觸發 NPC 自主發言。只送 NPC 設定、DM 行動方向與本次情境，不送完整房間聊天紀錄。
+  reg2("/api/admin/rooms/{1}/npcs/{2}/speak", drogon::Post,
+       [service](const Request& req, Callback& cb, const std::string& roomIdText, const std::string& templateIdText) {
+    try {
+      const auto user = requireUser(service, req, true);
+      const auto roomId = positiveId(roomIdText, "房間 ID 無效");
+      const auto npcId = positiveId(templateIdText, "NPC 模板 ID 無效");
+      const auto apiKey = std::getenv("OPENAI_API_KEY");
+      if (!apiKey || !*apiKey) throw ApiError(drogon::k503ServiceUnavailable, "尚未在 Render 設定 OPENAI_API_KEY");
+      const auto body = bodyOrEmpty(req);
+      const auto situation = trimmed(stringValue(body["situation"]));
+      if (situation.size() > 800) throw ApiError(drogon::k400BadRequest, "情境描述最多 800 字");
+      const auto rows = service->database()->execSqlSync(
+          "SELECT nt.name,nt.role_name,nt.description,nt.ai_behavior,nt.config::text AS config_text,rn.state::text AS state_text "
+          "FROM room_npcs rn JOIN npc_templates nt ON nt.id=rn.npc_template_id WHERE rn.room_id=$1 AND rn.npc_template_id=$2",
+          roomId, npcId);
+      if (rows.empty()) throw ApiError(drogon::k404NotFound, "找不到房間 NPC");
+      const auto roomState = parseJson(rows[0]["state_text"].as<std::string>());
+      const auto name = rows[0]["name"].as<std::string>();
+      const auto role = rows[0]["role_name"].as<std::string>();
+      const auto description = rows[0]["description"].as<std::string>();
+      const auto directive = stringValue(roomState["dm_directive"]);
+      std::string instructions = "你正在協助一場 TRPG。請以繁體中文，完全以 NPC 身分自然地說一句到三句話。遵守角色設定與 DM 給的大方向；自行補足細節，但不要替玩家做決定、不要改寫既定世界事實、不要宣稱執行尚未發生的遊戲規則或擲骰結果。只輸出 NPC 說的內容，不要加旁白標籤。";
+      Json::Value input;
+      input["model"] = "gpt-6-luna";
+      input["instructions"] = instructions;
+      input["max_output_tokens"] = 220;
+      input["input"] = "NPC 名稱：" + name + "\n身分／職業：" + role + "\n背景與個性：" + description + "\n行為傾向：" + rows[0]["ai_behavior"].as<std::string>() + "\nDM 指定的大方向：" + (directive.empty() ? "（沒有指定）" : directive) + "\n本次情境：" + (situation.empty() ? "請根據上述角色設定自然開口或回應當前場景。" : situation);
+      auto request = drogon::HttpRequest::newHttpJsonRequest(input);
+      request->setMethod(drogon::Post);
+      request->setPath("/v1/responses");
+      request->addHeader("Authorization", std::string("Bearer ") + apiKey);
+      request->addHeader("Content-Type", "application/json");
+      auto client = drogon::HttpClient::newHttpClient("https://api.openai.com");
+      client->sendRequest(request, [service, client, callback = std::move(cb), roomId, userId = user.id, npcId, name](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
+        try {
+          if (result != drogon::ReqResult::Ok || !response) throw ApiError(drogon::k502BadGateway, "無法連線到 OpenAI API");
+          const auto statusCode = static_cast<int>(response->getStatusCode());
+          if (statusCode < 200 || statusCode >= 300) throw ApiError(drogon::k502BadGateway, "OpenAI API 回應失敗");
+          const auto* json = response->getJsonObject();
+          if (!json) throw ApiError(drogon::k502BadGateway, "OpenAI API 回傳格式無效");
+          std::string text;
+          const auto output = (*json)["output"];
+          if (output.isArray()) for (const auto& item : output) if (item["content"].isArray()) for (const auto& part : item["content"]) if (stringValue(part["type"]) == "output_text") text += stringValue(part["text"]);
+          text = trimmed(text);
+          if (text.empty()) throw ApiError(drogon::k502BadGateway, "OpenAI API 沒有產生 NPC 台詞");
+          text = text.substr(0, std::min<std::size_t>(1000, text.size()));
+          Json::Value payload; payload["text"] = text; payload["volume"] = "normal"; payload["speaker_name"] = name; payload["npc_template_id"] = Json::Int64(npcId); payload["generated_by"] = "openai";
+          service->addEvent(roomId, userId, "speech", payload);
+          RoomSocket::broadcastSnapshotForRoom(roomId);
+          Json::Value out; out["ok"] = true; out["text"] = text; out["speaker_name"] = name; reply(callback, std::move(out));
+        } catch (const ApiError& error) { fail(callback, error.status, error.what()); }
+          catch (const std::exception& error) { LOG_WARN << "NPC OpenAI speech failed: " << error.what(); fail(callback, drogon::k500InternalServerError, "NPC 生成發言失敗"); }
+      }, 30.0);
+    } catch (const ApiError& error) { fail(cb, error.status, error.what()); }
+      catch (const std::exception& error) { LOG_WARN << "NPC speech setup failed: " << error.what(); fail(cb, drogon::k500InternalServerError, "NPC 生成發言失敗"); }
   });
 
   // [功能備註｜NPC｜DELETE /api/admin/rooms/{1}/npcs/{2}]

@@ -2100,6 +2100,8 @@ const state = {
   templateCenter: {},
   bulkImportPreview: null,
   mobileCombatMode: false,
+  npcAutoActKey: '',
+  npcAutoActBusy: false,
   monsterTemplates: [],
   npcTemplates: [],
   dungeonTemplates: [],
@@ -5211,6 +5213,74 @@ function render(){
   renderNavigation();
 
   renderContent();
+  enhanceNpcControls();
+  maybeRunAutomaticNpcTurn();
+}
+
+function enhanceNpcControls(){
+  if(!state.user?.is_admin||!state.room?.room)return;
+  const roomId=state.room.room.id;
+  document.querySelectorAll('.set-npc-side').forEach(button=>{
+    const card=button.closest('article');if(!card||card.querySelector('.toggle-npc-control'))return;
+    const npc=(state.roomWorld?.npcs||[]).find(n=>String(n.id)===String(button.dataset.id));
+    if(!npc)return;
+    if(!card.querySelector('.npc-inventory-summary')){const inv=document.createElement('div');inv.className='muted section npc-inventory-summary';const items=npc.state?.inventory||[];inv.textContent=`背包：${items.length?items.map(x=>`${x.name||x} ×${Number(x.quantity)||1}`).join('、'):'空'}`;card.appendChild(inv);}
+    const toggle=document.createElement('button');toggle.className='btn ghost small toggle-npc-control';
+    toggle.textContent=`切換為${npc.control_mode==='auto'?'手動':'自動'}行動`;
+    toggle.onclick=async()=>{try{await api(`/api/admin/rooms/${roomId}/npcs/${npc.id}/control-mode`,{method:'PATCH',body:JSON.stringify({mode:npc.control_mode==='auto'?'manual':'auto'})});state.npcAutoActKey='';await loadRoomWorld();render();toast('NPC 行動模式已更新');}catch(e){toast(e.message);}};
+    button.parentElement.appendChild(toggle);
+    const directive=document.createElement('button');directive.className='btn secondary small set-npc-directive';directive.textContent='設定行動方向';
+    directive.onclick=()=>openPrompt('NPC 行動方向','給 NPC 一個大方向；具體說話與行動由 NPC 自行補完。留空可清除。',npc.state?.dm_directive||'',async value=>{try{await api(`/api/admin/rooms/${roomId}/npcs/${npc.id}/directive`,{method:'PATCH',body:JSON.stringify({directive:value})});await loadRoomWorld();render();toast('NPC 行動方向已更新');}catch(e){toast(e.message);}});
+    button.parentElement.appendChild(directive);
+    const inventoryButton=document.createElement('button');inventoryButton.className='btn secondary small manage-npc-inventory';inventoryButton.textContent='管理背包';
+    inventoryButton.onclick=async()=>{const action=prompt('輸入 add 給予 NPC 道具，或 remove 移除道具','add');if(!action||!['add','remove'].includes(action))return;const name=prompt('道具名稱');if(!name)return;const quantity=Math.max(1,Number(prompt('數量','1'))||1);try{await api(`/api/admin/rooms/${roomId}/npcs/${npc.id}/inventory`,{method:'POST',body:JSON.stringify({action,name,quantity})});await loadRoomWorld();render();toast('NPC 背包已更新');}catch(e){toast(e.message);}};
+    button.parentElement.appendChild(inventoryButton);
+    const giftButton=document.createElement('button');giftButton.className='btn secondary small gift-from-npc';giftButton.textContent='贈送玩家道具';
+    giftButton.onclick=async()=>{const players=(state.room?.members||[]).filter(m=>m.role==='player');if(!players.length)return toast('房間裡沒有玩家');const list=players.map(m=>`${m.display_name||m.username}（ID ${m.id}）`).join('\n');const userId=Number(prompt(`輸入收禮玩家 ID：\n${list}`));if(!players.some(m=>Number(m.id)===userId))return toast('請輸入房間玩家名單中的 ID');const name=prompt('道具名稱');if(!name)return;const quantity=Math.max(1,Number(prompt('數量','1'))||1);try{await api(`/api/admin/rooms/${roomId}/npcs/${npc.id}/gift`,{method:'POST',body:JSON.stringify({user_id:userId,name,quantity})});await Promise.all([loadRoomWorld(),loadMyCharacter()]);render();toast('NPC 已贈送道具');}catch(e){toast(e.message);}};
+    button.parentElement.appendChild(giftButton);
+    const craftButton=document.createElement('button');craftButton.className='btn secondary small craft-with-npc';craftButton.textContent='使用技能製作';
+    craftButton.onclick=async()=>{try{await loadRecipes();const recipes=state.recipes||[];if(!recipes.length)return toast('目前沒有可用配方');const selection=prompt(`輸入配方 ID：\n${recipes.map(r=>`${r.id} · ${r.name}`).join('\n')}`);if(!selection)return;const recipeId=Number(selection.split(/[·| ]/)[0]);if(!recipes.some(r=>Number(r.id)===recipeId))return toast('找不到這個配方');const data=await api(`/api/admin/rooms/${roomId}/npcs/${npc.id}/craft`,{method:'POST',body:JSON.stringify({recipe_id:recipeId})});await loadRoomWorld();render();toast(data.success?'NPC 製作成功':'NPC 製作失敗');}catch(e){toast(e.message);}};
+    button.parentElement.appendChild(craftButton);
+    const speakButton=document.createElement('button');speakButton.className='btn secondary small npc-generate-speech';speakButton.textContent='讓 NPC 自主發言';
+    speakButton.onclick=async()=>{const situation=prompt('可留白讓 NPC 自由發揮；或輸入目前場景／希望回應的話','');if(situation===null)return;try{const result=await api(`/api/admin/rooms/${roomId}/npcs/${npc.id}/speak`,{method:'POST',body:JSON.stringify({situation})});state.room=await api(`/api/rooms/${roomId}`);render();toast(`${result.speaker_name}：${result.text}`);}catch(e){toast(e.message);}};
+    button.parentElement.appendChild(speakButton);
+    const viewButton=document.createElement('button');viewButton.className='btn ghost small npc-viewpoint';viewButton.textContent='查看 NPC 視角';
+    viewButton.onclick=()=>showNpcPerspective(npc);
+    button.parentElement.appendChild(viewButton);
+  });
+  const actor=currentCombatActorUI();
+  if(actor?.type!=='npc')return;
+  const actionButton=document.querySelector('#aiCombatAct');
+  if(actor.npc?.control_mode==='auto'){if(actionButton)actionButton.closest('.actions')?.remove();return;}
+  if(actionButton)actionButton.closest('.actions')?.remove();
+  if(document.querySelector('#manualNpcAct'))return;
+  const targets=combatTargetPool('enemy').filter(t=>t.type==='monster'||t.type==='npc');
+  const box=document.createElement('div');box.className='actions section';
+  box.innerHTML=targets.length?`<select id="manualNpcTarget" class="input">${targets.map(t=>`<option value="${t.type}:${t.id}">${t.type==='monster'?'怪物':'敵方 NPC'} · ${esc(t.name)}</option>`).join('')}</select><button id="manualNpcAct" class="btn danger">由 DM 操作 ${esc(actor.name)}（基本攻擊）</button>`:'<div class="muted">沒有可攻擊的敵方目標。</div>';
+  const combatPanel=document.querySelector('#aiCombatAct')?.closest('.card')||document.querySelector('#combatReaction')?.closest('.card');
+  if(combatPanel)combatPanel.appendChild(box);
+  const go=box.querySelector('#manualNpcAct');if(go)go.onclick=async()=>{try{const [target_type,target_id]=document.querySelector('#manualNpcTarget').value.split(':');const data=await api(`/api/admin/rooms/${roomId}/combat/npc-act`,{method:'POST',body:JSON.stringify({target_type,target_id:Number(target_id)})});state.room=data.room;await Promise.all([loadRoomWorld(),loadMyCharacter()]);render();toast('NPC 已完成手動攻擊');}catch(e){toast(e.message);}};
+}
+
+function showNpcPerspective(npc){
+  const node=(state.mapNodes||[]).find(n=>String(n.id)===String(npc.map_node_id));
+  if(!npc.map_node_id||!node)return toast('先把 NPC 放到副本的地圖節點，才能查看它所在位置的視角');
+  $('#modalTitle').textContent=`${npc.name} 的副本視角`;
+  $('#modalBody').innerHTML=`<div class="muted">所在節點：${esc(node.name)} · ${esc(node.node_type||'場景')}</div>${node.description?`<div class="section" style="white-space:pre-wrap">${esc(node.description)}</div>`:''}${node.image_url?`<img class="section" src="${esc(node.image_url)}" alt="${esc(node.name)}" style="width:100%;max-height:360px;object-fit:contain;border-radius:12px">`:''}<div class="section">${planarMapHTML(Number(npc.map_node_id),npc.name)}</div><div class="muted section">這裡顯示 NPC 所在節點與場景資料；目前不會替 NPC 移動或改變副本狀態。</div>`;
+  $('#modalCancel').textContent='關閉';$('#modalCancel').onclick=closeModal;$('#modalOk').style.display='none';$('#modal').classList.remove('hidden');
+}
+
+function maybeRunAutomaticNpcTurn(){
+  if(state.npcAutoActBusy||!state.user?.is_admin||!state.room?.room?.battle_active)return;
+  const actor=currentCombatActorUI();
+  if(actor?.type!=='npc'||actor.npc?.control_mode!=='auto')return;
+  const key=`${state.room.room.id}:${state.room.room.round}:${actor.id}:${actor.npc?.turn_actions_remaining||0}`;
+  if(state.npcAutoActKey===key)return;
+  state.npcAutoActKey=key;state.npcAutoActBusy=true;
+  api(`/api/admin/rooms/${state.room.room.id}/combat/ai-act`,{method:'POST',body:'{}'})
+    .then(async data=>{state.room=data.room;await Promise.all([loadRoomWorld(),loadMyCharacter()]);render();})
+    .catch(error=>toast(`NPC 自動行動失敗：${error.message}`))
+    .finally(()=>{state.npcAutoActBusy=false;queueMicrotask(maybeRunAutomaticNpcTurn);});
 }
 
 
@@ -9144,11 +9214,11 @@ function mapNodePoint(node,index=0){
 }
 function mapNodeIcon(node){return String(node?.icon||({room:'▣',door:'⇄',search:'⌕',battle:'⚔',shop:'$',story:'◆',teleport:'◎'})[node?.node_type]||'●');}
 function nodeConnections(node){return (Array.isArray(node?.connections)?node.connections:[]).map(String);}
-function planarMapHTML(){
-  const room=state.room?.room||{},nodes=state.mapNodes||[],admin=Boolean(state.user?.is_admin),current=String(state.currentMapNodeId??''),scene=String(room.current_map_node_id??'');
+function planarMapHTML(perspectiveNodeId=null,perspectiveName=''){
+  const room=state.room?.room||{},nodes=state.mapNodes||[],admin=Boolean(state.user?.is_admin),current=String(perspectiveNodeId??state.currentMapNodeId??''),scene=String(room.current_map_node_id??'');
   const visibleIds=new Set(nodes.map(n=>String(n.id)));const edges=[];const seen=new Set();
   nodes.forEach((node,i)=>{nodeConnections(node).forEach(id=>{if(!visibleIds.has(id))return;const key=[String(node.id),id].sort().join(':');if(seen.has(key))return;seen.add(key);const other=nodes.find(n=>String(n.id)===id);if(!other)return;const a=mapNodePoint(node,i),b=mapNodePoint(other,nodes.indexOf(other));edges.push(`<line class="planar-edge ${current&&([String(node.id),id].includes(current))?'active':''}" x1="${a.x}%" y1="${a.y}%" x2="${b.x}%" y2="${b.y}%"></line>`);});});
-  const pins=nodes.map((node,i)=>{const p=mapNodePoint(node,i),isCurrent=String(node.id)===current,isScene=String(node.id)===scene;return `<button type="button" class="map-node-pin ${isCurrent?'current':''} ${isScene?'scene':''} ${node.hidden?'hidden-node':''}" data-map-node-id="${node.id}" style="left:${p.x}%;top:${p.y}%" title="${esc(node.name)}${node.description?'｜'+esc(node.description):''}">${esc(mapNodeIcon(node))} ${esc(node.name)}<span class="node-caption">${isCurrent?'你在這裡':isScene?'目前場景':admin?'可拖曳':''}</span></button>`;}).join('');
+  const pins=nodes.map((node,i)=>{const p=mapNodePoint(node,i),isCurrent=String(node.id)===current,isScene=String(node.id)===scene;return `<button type="button" class="map-node-pin ${isCurrent?'current':''} ${isScene?'scene':''} ${node.hidden?'hidden-node':''}" data-map-node-id="${node.id}" style="left:${p.x}%;top:${p.y}%" title="${esc(node.name)}${node.description?'｜'+esc(node.description):''}">${esc(mapNodeIcon(node))} ${esc(node.name)}<span class="node-caption">${isCurrent?(perspectiveNodeId?`${esc(perspectiveName)} 視角`:'你在這裡'):isScene?'目前場景':admin?'可拖曳':''}</span></button>`;}).join('');
   const bg=String(room.map_image_url||state.planarMap?.image_url||'').trim();
   return `<div id="planarMap" class="planar-map ${bg?'has-image':''}">${bg?`<img class="planar-map-bg" src="${esc(bg)}" alt="平面地圖底圖">`:''}<svg viewBox="0 0 100 100" preserveAspectRatio="none">${edges.join('')}</svg>${pins}${!nodes.length?'<div class="muted" style="position:absolute;inset:0;display:grid;place-items:center">DM 可雙擊平面圖新增第一個節點</div>':''}</div><div class="map-legend"><span class="badge">● 你的位置</span><span class="badge">連線＝可移動路徑</span>${admin?'<span class="badge">DM：拖曳節點／雙擊空白處新增</span>':''}</div>`;
 }
@@ -10225,9 +10295,9 @@ function chatHTML(){
     .filter(event=>supported.has(String(event.type||'')))
     .map(event=>{
       const mine=String(event.user_id??'')===String(myUserId??'');
-      const speakerName=event.character_name||event.username||'玩家';
       const type=String(event.type||'');
       const payload=event.payload||{};
+      const speakerName=payload.speaker_name||event.character_name||event.username||'玩家';
       if(type==='action'){
         return `<div class="chat-row ${mine?'mine':'other'}"><div class="chat-bubble"><div class="chat-meta">⚙️ ${esc(speakerName)} · 行動</div>${esc(payload.action||payload.text||'')}</div></div>`;
       }
@@ -12415,6 +12485,8 @@ function closeModal(){
   $('#modal')
     .classList
     .add('hidden');
+  $('#modalOk').style.display='';
+  $('#modalCancel').textContent='取消';
 }
 
 
