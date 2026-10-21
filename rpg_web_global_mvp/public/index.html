@@ -4464,7 +4464,7 @@ async function loadWorldLibraries(){
       api('/api/admin/dungeon-templates')
     ]);
     state.monsterTemplates=m.monsters||[];
-    state.npcTemplates=n.npcs||[];
+    state.npcTemplates=n.npcs||n.npc_templates||[];
     state.dungeonTemplates=d.dungeons||[];
   }catch(error){
     console.warn('讀取世界卡資料失敗',error);
