@@ -621,6 +621,15 @@ std::string normalizeContentRank(std::string rank) {
   return rank;
 }
 
+// 商店商品可額外標記為無等階或神階；其他內容仍使用標準 G～SSS 品階。
+std::string normalizeShopRank(std::string rank) {
+  rank = trimmed(rank);
+  if (rank.empty()) return "G";
+  if (rank == "無等階" || rank == "NONE") return "NONE";
+  if (rank == "神階" || rank == "GOD") return "GOD";
+  return normalizeContentRank(std::move(rank));
+}
+
 
 // [功能備註｜七元素魔法技能樹] 魔法節點只能落在七元素樹；舊資料的「無」保留作待整理節點。
 const std::array<std::string,7> kMagicTreeElements={"暗","光","金","木","水","火","土"};
@@ -3047,7 +3056,7 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
     runHandler(cb, [&] {
       requireUser(service, req, true);
       auto body = bodyOrEmpty(req);
-      body["rank"]=normalizeContentRank(stringValue(body["rank"],"G"));
+      body["rank"]=normalizeShopRank(stringValue(body["rank"],"G"));
       syncShopItemCategory(service->database(), body);
       Json::Value out;
       out["ok"] = true;
@@ -3063,7 +3072,7 @@ void registerLegacyV39Routes(const std::shared_ptr<CoreService>& service) {
     runHandler(cb, [&] {
       requireUser(service, req, true);
       auto body = bodyOrEmpty(req);
-      body["rank"]=normalizeContentRank(stringValue(body["rank"],"G"));
+      if (body.isMember("rank")) body["rank"]=normalizeShopRank(stringValue(body["rank"],"G"));
       syncShopItemCategory(service->database(), body);
       Json::Value out;
       out["ok"] = true;
